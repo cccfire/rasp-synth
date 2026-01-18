@@ -3,17 +3,18 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
+#include "adsr_screen.h"
 #include "screen.h"
 #include "app.h"
 
 
-void empty_init () {
+void empty_init (void* ptr) {
 }
 
-void empty_screen (cdsl_app_t* app) {
+void empty_screen (cdsl_app_t* app, void* ptr) {
 }
 
-void empty_draw (cdsl_app_t* app, SDL_Renderer* renderer) {
+void empty_draw (cdsl_app_t* app, SDL_Renderer* renderer, void* ptr) {
   SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
   SDL_RenderClear(renderer);
   SDL_RenderPresent(renderer);
@@ -43,6 +44,7 @@ int main(int argc, char *argv[]) {
 
   cdsl_screen_t minimal_screen = {
     .is_initialized = false,
+    .ctx = NULL,
     .init = &empty_screen,
     .on_enter = &empty_screen,
     .on_exit = &empty_screen,
@@ -56,7 +58,7 @@ int main(int argc, char *argv[]) {
     .on_draw = &empty_init
   };
 
-  app_init(&app);
+  app_init(&app, NULL);
   
   while (!done) {
     SDL_Event event;
@@ -74,7 +76,7 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    app_draw(&app);
+    app_draw(&app, NULL);
     
     /*
     SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);

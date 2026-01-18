@@ -9,11 +9,12 @@
 
 typedef struct screen {
   bool is_initialized;
+  void* ctx;
 
-  void (*init) (cdsl_app_t*);
-  void (*on_enter) (cdsl_app_t*);
-  void (*on_exit) (cdsl_app_t*);
-  void (*draw) (cdsl_app_t*, SDL_Renderer*);
+  void (*init) (cdsl_app_t*, void*);
+  void (*on_enter) (cdsl_app_t*, void*);
+  void (*on_exit) (cdsl_app_t*, void*);
+  void (*draw) (cdsl_app_t*, SDL_Renderer*, void*);
 } cdsl_screen_t;
 
 /**

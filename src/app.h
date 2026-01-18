@@ -13,11 +13,11 @@ typedef struct app {
   cdsl_screen_t* const starting_screen;
   cdsl_screen_t* active_screen;
 
-  void (*init) ();
-  void (*on_draw) ();
+  void (*init) (void*);
+  void (*on_draw) (void*);
 } cdsl_app_t;
 
-void app_init (cdsl_app_t* const app);
-void app_draw (cdsl_app_t* const app);
+void app_init (cdsl_app_t* const app, void* app_ctx);
+void app_draw (cdsl_app_t* const app, void* app_ctx);
 
 #endif // CDSL_APP_H
