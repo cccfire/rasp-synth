@@ -7,14 +7,6 @@
 #include "screen.h"
 
 void create_adsr_screen (cdsl_screen_t* const out_screen, adsr_ctx_t* const out_ctx) {
-
-  // Default values for adsr:
-  out_ctx->attack = 0.0;
-  out_ctx->decay = 0.0;
-  out_ctx->sustain = 0.0;
-  out_ctx->release = 0.0;
-
-
   out_screen->is_initialized = false;
   out_screen->ctx = (void*) out_ctx;
   out_screen->init = (void (*) (cdsl_app_t*, void*)) adsr_init;
@@ -24,6 +16,11 @@ void create_adsr_screen (cdsl_screen_t* const out_screen, adsr_ctx_t* const out_
 }
 
 void adsr_init (cdsl_app_t* app, adsr_ctx_t* ctx) {
+  // Default values for adsr:
+  ctx->attack = 0.0;
+  ctx->decay = 0.0;
+  ctx->sustain = 0.0;
+  ctx->release = 0.0;
 }
 
 void adsr_on_enter (cdsl_app_t* app, adsr_ctx_t* ctx) {
