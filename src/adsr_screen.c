@@ -17,37 +17,60 @@ static void __render_thick_line (SDL_Renderer* renderer, float x1, float y1
   }
 }
 
-static void __render_axis (SDL_Renderer* renderer, const float margin, const int width_split)
+static void __render_axis (SDL_Renderer* renderer, const float margin, const int width_split, const int thickness)
 {
   // get the size of the render output
   int width, height;
   SDL_GetRenderOutputSize(renderer, &width, &height);
 
-  const float second_width = (width - margin * 2) / width_split;
+  const float second_width = (float) width * (1.0 - margin * 2) / width_split;
 
   // just draw axes?
-  SDL_RenderLine(renderer, 
+  __render_thick_line(renderer, 
     (float) width * margin, 
     (float) height * (1.0 - margin), 
     (float) width * (1.0 - margin),
-    (float) height * (1.0 - margin)
+    (float) height * (1.0 - margin),
+    thickness
   );
 
-  SDL_RenderLine(renderer, 
+  __render_thick_line(renderer, 
     (float) width * margin, 
     (float) height * (1.0 - margin), 
     (float) width * margin,
-    (float) height * margin
+    (float) height * margin,
+    thickness
   );
 
   float tickmark_size = height * margin / 2;
   for (int i = 0; i <= width_split; i++) {
-    SDL_RenderLine(renderer,
-      (width * (1.0 - margin * 2) * i / width_split) + width * margin,
+    __render_thick_line(renderer,
+      i * second_width + width * margin,
       (float) height * (1.0 - margin) - tickmark_size/2, 
-      (width * (1.0 - margin * 2) * i / width_split) + width * margin,
-      (float) height * (1.0 - margin) + tickmark_size/2
+      i * second_width + width * margin,
+      (float) height * (1.0 - margin) + tickmark_size/2,
+      thickness
     );
+  }
+}
+
+static void __render_background_lines (SDL_Renderer* renderer, const float margin, const int width_split)
+{
+  // get the size of the render output
+  int width, height;
+  SDL_GetRenderOutputSize(renderer, &width, &height);
+
+  const float second_width = (float) width * (1.0 - margin * 2) / width_split;
+
+  float tickmark_size = height * margin / 2;
+  for (int i = 0; i <= width_split; i++) {
+    SDL_RenderLine(renderer,
+      i * second_width + width * margin,
+      (float) height * margin,
+      i * second_width + width * margin,
+      (float) height * (1.0 - margin) - tickmark_size/2 
+    );
+
   }
 }
 
@@ -112,11 +135,15 @@ void adsr_draw (cdsl_app_t* app, SDL_Renderer* renderer, adsr_ctx_t* ctx)
   const float frame_margin = 0.03;
 
   // line thickness
-  const int thickness = 3;
+  const int thickness = 5;
 
   // we want one second to be approximately 1/4 of the screen
   int width_split = 4;
   float second_width = (float) width * (1.0 - margin * 2) / width_split;
+
+  // draw indicators for seconds
+  SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
+  __render_background_lines(renderer, margin, width_split);
 
   // draw line for attack
   SDL_SetRenderDrawColor(renderer, 128, 0, 0, 255); // red (maroon)
@@ -165,7 +192,7 @@ void adsr_draw (cdsl_app_t* app, SDL_Renderer* renderer, adsr_ctx_t* ctx)
   __render_rect_frame(renderer, frame_margin);
 
   SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-  __render_axis(renderer, margin, width_split);
+  __render_axis(renderer, margin, width_split, 2);
 }
 
 
