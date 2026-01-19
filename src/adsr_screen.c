@@ -140,7 +140,7 @@ void adsr_draw (cdsl_app_t* app, SDL_Renderer* renderer, adsr_ctx_t* ctx)
   __render_thick_line(renderer, prev_x, prev_y, next_x, next_y, thickness);
 
   // draw line for decay/sustain
-  SDL_SetRenderDrawColor(renderer, 255, 206, 27, 255); //  yellow (mustard)
+  SDL_SetRenderDrawColor(renderer, 218, 165, 32, 255); //  yellow (goldenrod)
 
   prev_x = next_x;
 
