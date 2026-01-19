@@ -11,6 +11,7 @@
 // all of these are in seconds except for sustain, which is %-based from 0.0 - 1.0
 typedef struct adsr_ctx {
   double attack; 
+  double hold;
   double decay;
   double sustain;
   double release;
