@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
   bool done = false;
 
   SDL_Window *window = SDL_CreateWindow(
-    "Test", // window title
+    "Raspsynth", // window title
     800, // window width px
     600, // window height px
     SDL_WINDOW_FULLSCREEN | SDL_WINDOW_ALWAYS_ON_TOP // flags - we want the window to always be active
