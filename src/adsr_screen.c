@@ -7,6 +7,16 @@
 
 #include "screen.h"
 
+// thickens line horizontally and vertically 
+static void __render_thick_line (SDL_Renderer* renderer, float x1, float y1
+  , float x2, float y2, int thickness)
+{
+  for (int i = 0; i < thickness; i++) {
+    SDL_RenderLine(renderer, x1 + i, y1, x2 + i, y2);
+    SDL_RenderLine(renderer, x1, y1 + i, x2, y2 + i);
+  }
+}
+
 static void __render_axis (SDL_Renderer* renderer, const float margin, const int width_split)
 {
   // get the size of the render output
@@ -101,6 +111,9 @@ void adsr_draw (cdsl_app_t* app, SDL_Renderer* renderer, adsr_ctx_t* ctx)
   const float margin = 0.05;
   const float frame_margin = 0.03;
 
+  // line thickness
+  const int thickness = 3;
+
   // we want one second to be approximately 1/4 of the screen
   int width_split = 4;
   float second_width = (float) width * (1.0 - margin * 2) / width_split;
@@ -114,7 +127,7 @@ void adsr_draw (cdsl_app_t* app, SDL_Renderer* renderer, adsr_ctx_t* ctx)
   float next_x = ((float) width) * margin + second_width * ctx->attack;
   float next_y = (float) height * margin;
 
-  SDL_RenderLine(renderer, prev_x, prev_y, next_x, next_y);
+  __render_thick_line(renderer, prev_x, prev_y, next_x, next_y, thickness);
 
   // draw line for hold 
   SDL_SetRenderDrawColor(renderer, 0, 128, 0, 255); // green (darker green)
@@ -124,7 +137,7 @@ void adsr_draw (cdsl_app_t* app, SDL_Renderer* renderer, adsr_ctx_t* ctx)
 
   next_x += second_width * ctx->hold;
 
-  SDL_RenderLine(renderer, prev_x, prev_y, next_x, next_y);
+  __render_thick_line(renderer, prev_x, prev_y, next_x, next_y, thickness);
 
   // draw line for decay/sustain
   SDL_SetRenderDrawColor(renderer, 255, 206, 27, 255); //  yellow (mustard)
@@ -134,7 +147,7 @@ void adsr_draw (cdsl_app_t* app, SDL_Renderer* renderer, adsr_ctx_t* ctx)
   next_x += second_width * ctx->decay;
   next_y += (float) height * (1.0 - 2 * margin) * (1 - ctx->sustain);
                                                        
-  SDL_RenderLine(renderer, prev_x, prev_y, next_x, next_y);
+  __render_thick_line(renderer, prev_x, prev_y, next_x, next_y, thickness);
 
   // draw line for release
   SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255); //  blue (blue)
@@ -145,7 +158,7 @@ void adsr_draw (cdsl_app_t* app, SDL_Renderer* renderer, adsr_ctx_t* ctx)
   next_x += second_width * ctx->release;
   next_y = (float) height * (1.0 - margin);
 
-  SDL_RenderLine(renderer, prev_x, prev_y, next_x, next_y);
+  __render_thick_line(renderer, prev_x, prev_y, next_x, next_y, thickness);
 
   SDL_SetRenderDrawColor(renderer, 55, 55, 55, 255);
 
