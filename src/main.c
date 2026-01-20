@@ -17,8 +17,6 @@ void empty_screen (cdsl_app_t* app, void* ptr) {
 void empty_draw (cdsl_app_t* app, SDL_Renderer* renderer, void* ptr) {
   SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
   SDL_RenderClear(renderer);
-  SDL_RenderPresent(renderer);
-  SDL_Delay(16);
 }
 
 int main(int argc, char *argv[]) {
@@ -51,9 +49,13 @@ int main(int argc, char *argv[]) {
     .draw = &empty_draw,
   };
 
+  cdsl_screen_t adsr_screen;
+  adsr_ctx_t adsr_ctx;
+  create_adsr_screen(&adsr_screen, &adsr_ctx);
+
   cdsl_app_t app = {
     .renderer = renderer,
-    .starting_screen = &minimal_screen,
+    .starting_screen = &adsr_screen,
     .init = &empty_init,
     .on_draw = &empty_init
   };
@@ -76,7 +78,10 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    app_draw(&app, NULL);
+    app_draw(&app, app.active_screen->ctx);
+
+    // TODO: Should it be the screen's responsibility to present?
+    SDL_RenderPresent(renderer);
     
     /*
     SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
