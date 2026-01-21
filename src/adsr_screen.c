@@ -99,6 +99,7 @@ void create_adsr_screen (cdsl_screen_t* const out_screen, adsr_ctx_t* const out_
   out_screen->on_enter = (void (*) (cdsl_app_t*, void*)) adsr_on_enter;
   out_screen->on_exit = (void (*) (cdsl_app_t*, void*)) adsr_on_exit;
   out_screen->draw = (void (*) (cdsl_app_t*, SDL_Renderer*, void*)) adsr_draw;
+  out_screen->event_callback = (void (*) (cdsl_app_t*, SDL_Event*, void*)) adsr_event_callback;
 }
 
 void adsr_init (cdsl_app_t* app, adsr_ctx_t* ctx) 
@@ -193,6 +194,10 @@ void adsr_draw (cdsl_app_t* app, SDL_Renderer* renderer, adsr_ctx_t* ctx)
 
   SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
   __render_axis(renderer, margin, width_split, 2);
+}
+
+void adsr_event_callback (cdsl_app_t* app, SDL_Event* event, adsr_ctx_t* ctx)
+{
 }
 
 
