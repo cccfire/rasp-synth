@@ -24,6 +24,9 @@ typedef struct screen {
  * - sets active screen to new screen
  * - initializes new screen if new screen has not been initialized
  * - enters new screen
+ *
+ * @param[iin] app       app
+ * @param[in] screen     screen to enter
  */
 void enter_screen (cdsl_app_t* const app, cdsl_screen_t* const screen);
 

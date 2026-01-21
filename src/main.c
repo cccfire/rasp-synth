@@ -1,31 +1,51 @@
 #include <stdbool.h>
+#include <assert.h>
+#include <stdio.h>
+
+#include <portaudio.h>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
+#include "raspsynth.h"
 #include "adsr_screen.h"
 #include "screen.h"
 #include "app.h"
 
+#define SAMPLE_RATE (44100)
 
-void empty_init (void* ptr) {
+
+void empty_init (void* ptr) 
+{
 }
 
-void empty_screen (cdsl_app_t* app, void* ptr) {
+void empty_screen (cdsl_app_t* app, void* ptr) 
+{
 }
 
-void empty_draw (cdsl_app_t* app, SDL_Renderer* renderer, void* ptr) {
+void empty_draw (cdsl_app_t* app, SDL_Renderer* renderer, void* ptr) 
+{
   SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
   SDL_RenderClear(renderer);
+}
+
+void __error_check(PaError err)
+{
+  if(err != paNoError)
+    printf(  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
+  assert(err == paNoError);
 }
 
 int main(int argc, char *argv[]) {
   SDL_Init(SDL_INIT_VIDEO);
 
+  PaError err = Pa_Initialize();
+  __error_check(err);
+
   bool done = false;
 
   SDL_Window *window = SDL_CreateWindow(
-    "Test", // window title
+    "Raspsynth", // window title
     800, // window width px
     600, // window height px
     SDL_WINDOW_FULLSCREEN | SDL_WINDOW_ALWAYS_ON_TOP // flags - we want the window to always be active
@@ -40,6 +60,7 @@ int main(int argc, char *argv[]) {
 
   SDL_Renderer *renderer = SDL_CreateRenderer(window, NULL);
 
+  /*
   cdsl_screen_t minimal_screen = {
     .is_initialized = false,
     .ctx = NULL,
@@ -48,6 +69,7 @@ int main(int argc, char *argv[]) {
     .on_exit = &empty_screen,
     .draw = &empty_draw,
   };
+  */
 
   cdsl_screen_t adsr_screen;
   adsr_ctx_t adsr_ctx;
@@ -60,7 +82,27 @@ int main(int argc, char *argv[]) {
     .on_draw = &empty_init
   };
 
-  app_init(&app, NULL);
+  raspsynth_ctx_t raspsynth_ctx;
+
+  // populates "app" with function pointers
+  create_raspsynth(&app, &raspsynth_ctx);
+
+  app_init(&app, &raspsynth_ctx);
+
+  PaStream* stream;
+  err = Pa_OpenDefaultStream( &stream,
+                                0,          /* no input channels */
+                                2,          /* stereo output */
+                                paFloat32,  /* 32 bit floating point output */
+                                SAMPLE_RATE,
+                                256,        /* frames per buffer */
+                                app.audiogen_callback,
+                                (void*) &raspsynth_ctx);
+
+  __error_check(err);
+
+  err = Pa_StartStream(stream);
+  __error_check(err);
   
   while (!done) {
     SDL_Event event;
@@ -78,7 +120,7 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    app_draw(&app, app.active_screen->ctx);
+    app_draw(&app, &raspsynth_ctx);
 
     // TODO: Should it be the screen's responsibility to present?
     SDL_RenderPresent(renderer);
@@ -94,5 +136,14 @@ int main(int argc, char *argv[]) {
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
   SDL_Quit();
+
+  err = Pa_StopStream(stream);
+  __error_check(err);
+  err = Pa_CloseStream(stream);
+  __error_check(err);
+
+  err = Pa_Terminate();
+  __error_check(err);
+
   return 0;
 }
