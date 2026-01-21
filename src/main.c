@@ -7,27 +7,15 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
-#include "raspsynth.h"
+#include "empty_stubs.h"
+
 #include "adsr_screen.h"
+#include "raspsynth.h"
 #include "screen.h"
 #include "app.h"
 
 #define SAMPLE_RATE (44100)
 
-
-void empty_init (void* ptr) 
-{
-}
-
-void empty_screen (cdsl_app_t* app, void* ptr) 
-{
-}
-
-void empty_draw (cdsl_app_t* app, SDL_Renderer* renderer, void* ptr) 
-{
-  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-  SDL_RenderClear(renderer);
-}
 
 void __error_check(PaError err)
 {
@@ -61,14 +49,6 @@ int main(int argc, char *argv[]) {
   SDL_Renderer *renderer = SDL_CreateRenderer(window, NULL);
 
   /*
-  cdsl_screen_t minimal_screen = {
-    .is_initialized = false,
-    .ctx = NULL,
-    .init = &empty_screen,
-    .on_enter = &empty_screen,
-    .on_exit = &empty_screen,
-    .draw = &empty_draw,
-  };
   */
 
   cdsl_screen_t adsr_screen;
