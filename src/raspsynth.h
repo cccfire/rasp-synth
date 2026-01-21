@@ -21,7 +21,9 @@ typedef struct raspsynth {
  * @param[out] out_app  output screen
  * @param[out] out_ctx     output context 
  */
-void create_raspsynth(cdsl_app_t* out_app, raspsynth_ctx_t* out_ctx);
+void create_raspsynth(
+    cdsl_app_t* out_app, 
+    raspsynth_ctx_t* out_ctx);
 void raspsynth_init(raspsynth_ctx_t* ctx);
 void raspsynth_on_draw(raspsynth_ctx_t* ctx);
 int raspsynth_audiogen_callback( 

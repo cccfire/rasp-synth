@@ -9,5 +9,5 @@ void app_init (cdsl_app_t* const app, void* ctx)
 
 void app_draw (cdsl_app_t* const app, void* ctx)
 {
-  app->active_screen->draw(app, app->renderer, ctx);
+  app->active_screen->draw(app, app->renderer, app->active_screen->ctx);
 }

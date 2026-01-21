@@ -1,13 +1,18 @@
 #include <stdbool.h>
+#include <assert.h>
+#include <stdio.h>
 
 #include <portaudio.h>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
+#include "raspsynth.h"
 #include "adsr_screen.h"
 #include "screen.h"
 #include "app.h"
+
+#define SAMPLE_RATE (44100)
 
 
 void empty_init (void* ptr) {
@@ -23,6 +28,11 @@ void empty_draw (cdsl_app_t* app, SDL_Renderer* renderer, void* ptr) {
 
 int main(int argc, char *argv[]) {
   SDL_Init(SDL_INIT_VIDEO);
+
+  PaError err = Pa_Initialize();
+  if(err != paNoError)
+    printf(  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
+  assert(err == paNoError);
 
   bool done = false;
 
@@ -42,6 +52,7 @@ int main(int argc, char *argv[]) {
 
   SDL_Renderer *renderer = SDL_CreateRenderer(window, NULL);
 
+  /*
   cdsl_screen_t minimal_screen = {
     .is_initialized = false,
     .ctx = NULL,
@@ -50,6 +61,7 @@ int main(int argc, char *argv[]) {
     .on_exit = &empty_screen,
     .draw = &empty_draw,
   };
+  */
 
   cdsl_screen_t adsr_screen;
   adsr_ctx_t adsr_ctx;
@@ -62,7 +74,11 @@ int main(int argc, char *argv[]) {
     .on_draw = &empty_init
   };
 
-  app_init(&app, NULL);
+  raspsynth_ctx_t raspsynth_ctx;
+
+  create_raspsynth(&app, &raspsynth_ctx);
+
+  app_init(&app, &raspsynth_ctx);
   
   while (!done) {
     SDL_Event event;
@@ -80,7 +96,7 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    app_draw(&app, app.active_screen->ctx);
+    app_draw(&app, &raspsynth_ctx);
 
     // TODO: Should it be the screen's responsibility to present?
     SDL_RenderPresent(renderer);
@@ -96,5 +112,11 @@ int main(int argc, char *argv[]) {
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
   SDL_Quit();
+
+  err = Pa_Terminate();
+  if(err != paNoError)
+    printf("PortAudio error: %s\n", Pa_GetErrorText(err));
+  assert(err == paNoError);
+
   return 0;
 }
