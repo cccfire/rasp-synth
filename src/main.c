@@ -98,6 +98,8 @@ int main(int argc, char *argv[]) {
               done = true;
           }
       }
+
+      app_event(&app, &event, &raspsynth_ctx);
     }
 
     app_draw(&app, &raspsynth_ctx);

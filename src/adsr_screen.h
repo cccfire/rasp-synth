@@ -30,7 +30,7 @@ void adsr_init (cdsl_app_t* app, adsr_ctx_t* ctx);
 void adsr_on_enter (cdsl_app_t* app, adsr_ctx_t* ctx);
 void adsr_on_exit (cdsl_app_t* app, adsr_ctx_t* ctx);
 void adsr_draw (cdsl_app_t* app, SDL_Renderer* renderer, adsr_ctx_t* ctx);
-void adsr_event_callback (cdsl_app_t* app, SDL_Event* event, adsr_ctx_t* ctx);
+void adsr_event_callback (cdsl_app_t* app, const SDL_Event* event, adsr_ctx_t* ctx);
 
 
 #endif // CDSL_ADSR_SCREEN_H

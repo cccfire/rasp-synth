@@ -18,11 +18,11 @@ typedef struct app {
   void (*on_draw) (void*);
   int (*audiogen_callback) ( const void*, void*, unsigned long, 
       const PaStreamCallbackTimeInfo*, PaStreamCallbackFlags, void*);
-  void (*event_callback) (SDL_Event*, void*);
+  void (*event_callback) (const SDL_Event*, void*);
 } cdsl_app_t;
 
 void app_init (cdsl_app_t* const app, void* app_ctx);
 void app_draw (cdsl_app_t* const app, void* app_ctx);
-void app_event (cdsl_app_t* const app, void* app_ctx);
+void app_event (cdsl_app_t* const app, const SDL_Event* event, void* app_ctx);
 
 #endif // CDSL_APP_H
