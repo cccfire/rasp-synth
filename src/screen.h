@@ -15,6 +15,7 @@ typedef struct screen {
   void (*on_enter) (cdsl_app_t*, void*);
   void (*on_exit) (cdsl_app_t*, void*);
   void (*draw) (cdsl_app_t*, SDL_Renderer*, void*);
+  void (*event_callback) (cdsl_app_t*, SDL_Event* event, void*);
 } cdsl_screen_t;
 
 /**
