@@ -26,6 +26,8 @@ void create_raspsynth(
     raspsynth_ctx_t* out_ctx);
 void raspsynth_init(raspsynth_ctx_t* ctx);
 void raspsynth_on_draw(raspsynth_ctx_t* ctx);
+void raspsynth_event_callback(SDL_Event* event, raspsynth_ctx_t* ctx);
+
 int raspsynth_audiogen_callback( 
   const void* input,
   void* output,
