@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 
+#include <portaudio.h>
 #include <SDL3/SDL_surface.h>
 
 // forward decls
@@ -15,6 +16,8 @@ typedef struct app {
 
   void (*init) (void*);
   void (*on_draw) (void*);
+  int (*audiogen_callback) ( const void*, void*, unsigned long, 
+      const PaStreamCallbackTimeInfo*, PaStreamCallbackFlags, void*);
 } cdsl_app_t;
 
 void app_init (cdsl_app_t* const app, void* app_ctx);

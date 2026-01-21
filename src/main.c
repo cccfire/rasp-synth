@@ -15,24 +15,32 @@
 #define SAMPLE_RATE (44100)
 
 
-void empty_init (void* ptr) {
+void empty_init (void* ptr) 
+{
 }
 
-void empty_screen (cdsl_app_t* app, void* ptr) {
+void empty_screen (cdsl_app_t* app, void* ptr) 
+{
 }
 
-void empty_draw (cdsl_app_t* app, SDL_Renderer* renderer, void* ptr) {
+void empty_draw (cdsl_app_t* app, SDL_Renderer* renderer, void* ptr) 
+{
   SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
   SDL_RenderClear(renderer);
+}
+
+void __error_check(PaError err)
+{
+  if(err != paNoError)
+    printf(  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
+  assert(err == paNoError);
 }
 
 int main(int argc, char *argv[]) {
   SDL_Init(SDL_INIT_VIDEO);
 
   PaError err = Pa_Initialize();
-  if(err != paNoError)
-    printf(  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
-  assert(err == paNoError);
+  __error_check(err);
 
   bool done = false;
 
@@ -76,9 +84,25 @@ int main(int argc, char *argv[]) {
 
   raspsynth_ctx_t raspsynth_ctx;
 
+  // populates "app" with function pointers
   create_raspsynth(&app, &raspsynth_ctx);
 
   app_init(&app, &raspsynth_ctx);
+
+  PaStream* stream;
+  err = Pa_OpenDefaultStream( &stream,
+                                0,          /* no input channels */
+                                2,          /* stereo output */
+                                paFloat32,  /* 32 bit floating point output */
+                                SAMPLE_RATE,
+                                256,        /* frames per buffer */
+                                app.audiogen_callback,
+                                (void*) &raspsynth_ctx);
+
+  __error_check(err);
+
+  err = Pa_StartStream(stream);
+  __error_check(err);
   
   while (!done) {
     SDL_Event event;
@@ -113,10 +137,13 @@ int main(int argc, char *argv[]) {
   SDL_DestroyWindow(window);
   SDL_Quit();
 
+  err = Pa_StopStream(stream);
+  __error_check(err);
+  err = Pa_CloseStream(stream);
+  __error_check(err);
+
   err = Pa_Terminate();
-  if(err != paNoError)
-    printf("PortAudio error: %s\n", Pa_GetErrorText(err));
-  assert(err == paNoError);
+  __error_check(err);
 
   return 0;
 }
