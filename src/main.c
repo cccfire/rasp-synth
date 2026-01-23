@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include <portaudio.h>
+#include <portmidi.h>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
