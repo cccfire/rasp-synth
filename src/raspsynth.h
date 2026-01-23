@@ -8,11 +8,26 @@
 
 #include "adsr_screen.h"
 
+#define SAMPLE_RATE (44100)
+
+typedef enum envelope_state {
+  OFF, ATTACK, HOLD, DECAY, RELEASE
+} ENVELOPE_STATE_T;
+
 typedef struct raspsynth_voice {
-  float phase;
+  uint32_t start_time;
+  uint32_t filter_time;
+  int32_t pitch;
+  int32_t velocity;
+  float left;
+  float right;
+  float oscDetune;
+  float oscDetuneMod;
+  ENVELOPE_STATE_T state;
 } raspsynth_voice_t;
 
 typedef struct raspsynth {
+  int sample_rate;
   adsr_ctx_t* amp_adsr;
   adsr_ctx_t* filter_adsr;
   float left_phase;
@@ -47,7 +62,8 @@ void raspsynth_init(raspsynth_ctx_t* ctx);
 void raspsynth_on_draw(raspsynth_ctx_t* ctx);
 void raspsynth_event_callback(const SDL_Event* event, raspsynth_ctx_t* ctx);
 
-void raspsynth_add_voice(raspsynth_ctx_t* out_ctx);
+void raspsynth_add_voice(int32_t pitch, int32_t velocity, raspsynth_ctx_t* ctx);
+void raspsynth_note_off(int32_t pitch, raspsynth_ctx_t* ctx);
 
 int raspsynth_audiogen_callback( 
   const void* input,

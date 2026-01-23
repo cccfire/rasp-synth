@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <assert.h>
+#include <time.h>
 
 #include "raspsynth.h"
 
@@ -48,11 +49,35 @@ void raspsynth_on_draw(raspsynth_ctx_t* ctx)
 
 void raspsynth_event_callback(const SDL_Event* event, raspsynth_ctx_t* ctx)
 {
-
 }
 
-void raspsynth_add_voice(raspsynth_ctx_t* out_ctx)
+void raspsynth_note_on(int32_t pitch, int32_t velocity, raspsynth_ctx_t* ctx)
 {
+  raspsynth_voice_t* voice = NULL;
+
+
+
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  voice->start_time = ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+void raspsynth_note_off(int32_t pitch, raspsynth_ctx_t* ctx)
+{
+  raspsynth_voice_t* voice = NULL;
+  for (int i = 0; i < ctx->num_voices; i++) {
+    if (ctx->voices[i]->pitch == pitch) {
+      if (voice == 0) {
+        voice = ctx->voices[i];
+      } else if (ctx->voices[i]->start_time < voice->start_time){
+        voice = ctx->voices[i];
+      }
+    }
+  }
+
+  assert(voice != NULL);
+  voice->state = RELEASE;
+  voice->filter_time = 0;
 }
 
 int raspsynth_audiogen_callback( 

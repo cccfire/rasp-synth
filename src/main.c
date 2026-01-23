@@ -16,7 +16,6 @@
 #include "screen.h"
 #include "app.h"
 
-#define SAMPLE_RATE (44100)
 
 void __print_device_info()
 {
