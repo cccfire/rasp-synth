@@ -1,8 +1,10 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <stdio.h>
+#include <time.h>
 
 #include <portaudio.h>
+#include <portmidi.h>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -16,22 +18,54 @@
 
 #define SAMPLE_RATE (44100)
 
-
-void __error_check(PaError err)
+void __print_device_info()
 {
-  if(err != paNoError)
-    printf(  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
-  assert(err == paNoError);
+  int num_devices = Pm_CountDevices();
+  for (int i = 0; i < num_devices; i++) {
+    const PmDeviceInfo* info = Pm_GetDeviceInfo(i);
+    assert(info != NULL);
+    printf( "Device %d: %s\n", i, info->name );
+  }
+}
+
+void __paerror_check(PaError paerr)
+{
+  if (paerr != paNoError)
+    printf(  "PortAudio error: %s\n", Pa_GetErrorText( paerr ) );
+  assert(paerr == paNoError);
+}
+
+void __pmerror_check(PaError pmerr)
+{
+  if (pmerr != pmNoError)
+    printf(  "PortMidi error: %s\n", Pm_GetErrorText( pmerr ) );
+  assert(pmerr == pmNoError);
+}
+
+int32_t __time_proc(void *time_info) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;  // milliseconds
 }
 
 int main(int argc, char *argv[]) {
+  // Initialization
   SDL_Init(SDL_INIT_VIDEO);
 
-  PaError err = Pa_Initialize();
-  __error_check(err);
+  PaError paerr = Pa_Initialize();
+  __paerror_check(paerr);
+
+  PmError pmerr = Pm_Initialize();
+  __pmerror_check(pmerr);
+  __print_device_info();
 
   bool done = false;
 
+  /**
+   * SDL init
+   */
+
+  // Create window
   SDL_Window *window = SDL_CreateWindow(
     "Raspsynth", // window title
     800, // window width px
@@ -48,8 +82,31 @@ int main(int argc, char *argv[]) {
 
   SDL_Renderer *renderer = SDL_CreateRenderer(window, NULL);
 
-  /*
-  */
+  ////
+
+  /**
+   * using portmidi to open a MIDI input stream for development purposes
+   */
+
+  int num_devices = Pm_CountDevices();
+  const PmDeviceInfo* info = Pm_GetDeviceInfo(num_devices - 1);
+  assert(info != NULL);
+  printf( "Opening Input Stream from Device %d: %s\n", num_devices - 1, info->name );
+
+  PortMidiStream* pm_stream;
+  PmEvent pm_buffer;
+  void* time_info;
+
+  pmerr = Pm_OpenInput(
+    &pm_stream,
+    num_devices - 1,
+    NULL,
+    512,
+    __time_proc,
+    time_info);
+  __pmerror_check(pmerr);
+
+  assert (pm_stream != NULL);
 
   cdsl_screen_t adsr_screen;
   adsr_ctx_t adsr_ctx;
@@ -70,7 +127,7 @@ int main(int argc, char *argv[]) {
   app_init(&app, &raspsynth_ctx);
 
   PaStream* stream;
-  err = Pa_OpenDefaultStream( &stream,
+  paerr = Pa_OpenDefaultStream( &stream,
                                 0,          /* no input channels */
                                 2,          /* stereo output */
                                 paFloat32,  /* 32 bit floating point output */
@@ -79,10 +136,10 @@ int main(int argc, char *argv[]) {
                                 app.audiogen_callback,
                                 (void*) &raspsynth_ctx);
 
-  __error_check(err);
+  __paerror_check(paerr);
 
-  err = Pa_StartStream(stream);
-  __error_check(err);
+  paerr = Pa_StartStream(stream);
+  __paerror_check(paerr);
   
   while (!done) {
     SDL_Event event;
@@ -102,6 +159,12 @@ int main(int argc, char *argv[]) {
       app_event(&app, &event, &raspsynth_ctx);
     }
 
+    // Poll for Portmidi events
+    if (Pm_Read(pm_stream, &pm_buffer, 1)) {
+      PmMessage message = pm_buffer.message;
+      printf("Midi message: %d\n", Pm_MessageData1(message));
+    }
+
     app_draw(&app, &raspsynth_ctx);
 
     // TODO: Should it be the screen's responsibility to present?
@@ -114,18 +177,26 @@ int main(int argc, char *argv[]) {
     SDL_Delay(16);
     */
   }
+
+  // End program, clean up loose ends.
   
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
   SDL_Quit();
 
-  err = Pa_StopStream(stream);
-  __error_check(err);
-  err = Pa_CloseStream(stream);
-  __error_check(err);
+  paerr = Pa_StopStream(stream);
+  __paerror_check(paerr);
+  paerr = Pa_CloseStream(stream);
+  __paerror_check(paerr);
 
-  err = Pa_Terminate();
-  __error_check(err);
+  paerr = Pa_Terminate();
+  __paerror_check(paerr);
+
+  pmerr = Pm_Close(pm_stream);
+  __pmerror_check(pmerr);
+
+  pmerr = Pm_Terminate();
+  __pmerror_check(pmerr);
 
   return 0;
 }
