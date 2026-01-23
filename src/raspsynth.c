@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <math.h>
 #include <assert.h>
 #include <time.h>
@@ -22,6 +23,8 @@ void create_raspsynth(cdsl_app_t* out_app, raspsynth_ctx_t* out_ctx)
 
   out_ctx->num_voices = 0;
   out_ctx->voices_length = 10;
+
+  out_ctx->current_frame = 0;
     
   // initializes voices to all 0s (because that's how calloc works)
   out_ctx->voices = (raspsynth_voice_t**) calloc(out_ctx->voices_length, sizeof(void*));
@@ -68,7 +71,7 @@ void raspsynth_note_off(int32_t pitch, raspsynth_ctx_t* ctx)
 {
   raspsynth_voice_t* voice = NULL;
   for (int i = 0; i < ctx->num_voices; i++) {
-    if (ctx->voices[i]->pitch == pitch) {
+    if (ctx->voices[i]->pitch == pitch && ctx->voices[i]->state != RELEASE) {
       if (voice == 0) {
         voice = ctx->voices[i];
       } else if (ctx->voices[i]->start_time < voice->start_time){
@@ -87,7 +90,7 @@ void raspsynth_note_off(int32_t pitch, raspsynth_ctx_t* ctx)
      && ctx->voices[i]->start_time == voice->start_time) {
       //
       ctx->voices[i]->state = RELEASE;
-      ctx->voices[i]->filter_time = 0;
+      ctx->voices[i]->frame_count = 0;
     }
   }
 }
@@ -100,9 +103,8 @@ int raspsynth_audiogen_callback(
   PaStreamCallbackFlags statusFlags,
   void* userData )
 {
-  raspsynth_ctx_t* data = (raspsynth_ctx_t*) userData; 
+  raspsynth_ctx_t* ctx = (raspsynth_ctx_t*) userData; 
   float *out = (float*) output;
-  unsigned int i;
   (void) input; /* Prevent unused variable warning. */
 
   /*
@@ -111,18 +113,43 @@ int raspsynth_audiogen_callback(
                                  69.0) /
                                     12.0);
   */
+
   
-  for( i = 0; i < frameCount; i++ )
-  {
-    *out++ = data->left_phase;  /* left */
-    *out++ = data->right_phase;  /* right */
-    /* Generate simple sawtooth phaser that ranges between -1.0 and 1.0. */
+  for(int i = 0; i < frameCount; i++) {
+    float voice_gain = ctx->num_voices ? 1.0f / ctx->num_voices : 1.0f;
+
+    // Accumulators for left and right
+    float left_acc = 0.0f;
+    float right_acc = 0.0f;
+
+    ctx->current_frame++;
+
+    // Loop through voices array and find non-zero voice pointers
+    for (int j = 0; j < ctx->voices_length; j++) {
+      if (ctx->voices[j]) {
+        ctx->voices[j]->frame_count++;
+        ctx->voices[j]->step(ctx->voices[j]);
+        float out_l = 0.0f;
+        float out_r = 0.0f;
+        // the voice may no longer exist after process!
+        ctx->voices[j]->process(ctx, ctx->voices[j], &out_l, &out_r);
+
+        left_acc += out_l * voice_gain;
+        right_acc += out_r * voice_gain;
+      }
+    }
+    *out++ = left_acc;  // left 
+    *out++ = right_acc;  // right 
+                                 
+    /*
+    // Generate simple sawtooth phaser that ranges between -1.0 and 1.0. 
     data->left_phase += 0.01f;
-    /* When signal reaches top, drop back down. */
+    // When signal reaches top, drop back down. 
     if( data->left_phase >= 1.0f ) data->left_phase -= 2.0f;
-    /* higher pitch so we can distinguish left and right. */
+    // higher pitch so we can distinguish left and right. 
     data->right_phase += 0.03f;
     if( data->right_phase >= 1.0f ) data->right_phase -= 2.0f;
+    */
   }
   return 0;
 }
@@ -139,29 +166,123 @@ void raspsynth_start_voice(int32_t pitch, int32_t velocity, raspsynth_ctx_t* ctx
     }
   }
 
-  // If we didn't find any free spots, we will need to expand the voices array
-  //   so double the length and realloc. 
-  if (voice_position == NULL) {
-    ctx->voices_length = ctx->voices_length * 2;
-    ctx->voices = (raspsynth_voice_t**) realloc(ctx->voices, 
-      sizeof(raspsynth_voice_t*) * ctx->voices_length);
-  }
-
   // allocate space for the voice
   raspsynth_voice_t* voice = (raspsynth_voice_t*) malloc(sizeof(raspsynth_voice_t));
 
-  // put that pointer in the voices array
-  *voice_position = voice;
+  if (voice_position) {
+    *voice_position = voice;
+  }
+  // If we didn't find any free spots, we will need to expand the voices array
+  //   so double the length and realloc. 
+  else {
+    int length = ctx->voices_length;
+    ctx->voices_length = ctx->voices_length * 2;
+    ctx->voices = (raspsynth_voice_t**) realloc(ctx->voices, 
+      sizeof(raspsynth_voice_t*) * ctx->voices_length);
+    ctx->voices[length] = voice;
+  }
+
+
   
   // set voice values
   voice->start_time = time;
-  voice->filter_time = 0;
+  voice->frame_count= 0;
   voice->pitch = pitch;
   voice->velocity = velocity;
-  voice->left = 0.0f;
-  voice->right = 0.0f;
+  voice->left_phase = 0.0f;
+  voice->right_phase = 0.0f;
   voice->oscDetune = 0.0f;
   voice->oscDetuneMod = 0.0f;
   voice->state = ATTACK;
+
+  voice->step = raspsynth_step;
+  voice->process = raspsynth_sine_process;
+
+  ctx->num_voices++;
 }
 
+void raspsynth_remove_voice(raspsynth_ctx_t* ctx, raspsynth_voice_t* voice)
+{
+  assert(voice);
+
+  // Look for the voice in the voices array.
+  for (int i = 0; i < ctx->voices_length; i++) {
+    if (ctx->voices[i] == voice)
+      ctx->voices[i] = (raspsynth_voice_t*) NULL; // just to be super clear
+  }
+
+  // Free voice
+  free(voice);
+
+  // decrement num_voices 
+  ctx->num_voices--;
+}
+
+void raspsynth_step (raspsynth_voice_t* voice)
+{
+  float baseFreq = 440.0 * pow(2.0, ((voice->pitch +
+                                  (voice->oscDetune + voice->oscDetuneMod) / 100) -
+                                 69.0) /
+                                    12.0);
+  voice->left_phase += baseFreq / SAMPLE_RATE;
+  voice->right_phase += baseFreq / SAMPLE_RATE;
+}
+
+void raspsynth_process_adsr (raspsynth_ctx_t* const ctx, raspsynth_voice_t* voice, float* out_l, float* out_r)
+{
+  float seconds = ((float) voice->frame_count) / SAMPLE_RATE;
+  assert (seconds);
+  float modifier = 0.0f;
+  adsr_ctx_t adsr = voice->adsr;
+  switch (voice->state) {
+    case ATTACK:
+      modifier = seconds ? (seconds / adsr.attack) : 0;
+      *out_l = *out_l * modifier;
+      *out_r = *out_r * modifier;
+
+      if (seconds > adsr.attack) {
+        voice->state = HOLD;
+      }
+      break;
+    case HOLD:
+      if (seconds - adsr.attack > adsr.hold) {
+        voice->state = DECAY;
+        break;
+      }
+      break;
+    case DECAY:
+      if (seconds - adsr.attack - adsr.hold > adsr.decay) {
+        modifier = adsr.sustain;
+      } else {
+        modifier = (seconds - adsr.attack - adsr.hold) ? 
+          (1.0f - ((seconds - adsr.attack - adsr.hold) / adsr.decay)) 
+          * (1.0f - adsr.sustain) + adsr.sustain : 1;
+      }
+        *out_l = *out_l * modifier;
+        *out_r = *out_r * modifier;
+
+      break;
+    case RELEASE:
+      // RELEASE is set by note_off and when RELEASE is set, the frame_count is set to 0.
+      modifier = (1.0f - (adsr.release / seconds));
+      *out_l = *out_l * modifier;
+      *out_r = *out_r * modifier;
+
+      if (seconds > adsr.release) {
+        // We delete the voice.
+        raspsynth_remove_voice(ctx, voice);
+      }
+      break;
+    case OFF:
+      raspsynth_remove_voice(ctx, voice);
+      break;
+  }
+}
+
+void raspsynth_sine_process (raspsynth_ctx_t* const ctx, raspsynth_voice_t* voice, float* out_l, float* out_r)
+{
+  *out_l = sinf(voice->left_phase * 2.0f * M_PI);
+  *out_r = sinf(voice->right_phase * 2.0f * M_PI);
+
+  //raspsynth_process_adsr(ctx, voice, out_l, out_r);
+}

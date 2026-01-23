@@ -14,16 +14,22 @@ typedef enum envelope_state {
   OFF, ATTACK, HOLD, DECAY, RELEASE
 } ENVELOPE_STATE_T;
 
+typedef struct raspsynth_voice raspsynth_voice_t;
+typedef struct raspsynth raspsynth_ctx_t;
+
 typedef struct raspsynth_voice {
   uint32_t start_time;
-  uint32_t filter_time;
+  uint64_t frame_count;
   int32_t pitch;
   int32_t velocity;
-  float left;
-  float right;
+  float left_phase;
+  float right_phase;
   float oscDetune;
   float oscDetuneMod;
+  adsr_ctx_t adsr;
   ENVELOPE_STATE_T state;
+  void (*step) (raspsynth_voice_t* voice);
+  void (*process) (raspsynth_ctx_t* const ctx, raspsynth_voice_t* voice, float* out_l, float* out_r);
 } raspsynth_voice_t;
 
 typedef struct raspsynth_voice_params {
@@ -31,12 +37,13 @@ typedef struct raspsynth_voice_params {
 
 typedef struct raspsynth {
   int sample_rate;
-  adsr_ctx_t* amp_adsr;
-  adsr_ctx_t* filter_adsr;
+  adsr_ctx_t amp_adsr;
+  adsr_ctx_t filter_adsr;
   float left_phase;
   float right_phase;
   int num_voices;
   int voices_length;
+  uint64_t current_frame;
   raspsynth_voice_t** voices;
 } raspsynth_ctx_t;
 
@@ -79,5 +86,11 @@ int raspsynth_audiogen_callback(
 void raspsynth_start_voice(int32_t pitch, int32_t velocity, raspsynth_ctx_t* ctx, 
     raspsynth_voice_params_t* params, uint32_t time);
 
+void raspsynth_remove_voice(raspsynth_ctx_t* ctx, raspsynth_voice_t* voice);
+
+void raspsynth_step (raspsynth_voice_t* voice); 
+
+void raspsynth_process_adsr (raspsynth_ctx_t* const ctx, raspsynth_voice_t* voice, float* out_l, float* out_r);
+void raspsynth_sine_process (raspsynth_ctx_t* const ctx, raspsynth_voice_t* voice, float* out_l, float* out_r);
 #endif // RASPSYNTH_H
 

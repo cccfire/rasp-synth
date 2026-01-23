@@ -107,21 +107,23 @@ int main(int argc, char *argv[]) {
 
   assert (pm_stream != NULL);
 
-  cdsl_screen_t adsr_screen;
-  adsr_ctx_t adsr_ctx;
-  create_adsr_screen(&adsr_screen, &adsr_ctx);
+
+  raspsynth_ctx_t raspsynth_ctx;
 
   cdsl_app_t app = {
     .renderer = renderer,
-    .starting_screen = &adsr_screen,
     .init = &empty_init,
     .on_draw = &empty_init
   };
 
-  raspsynth_ctx_t raspsynth_ctx;
-
   // populates "app" with function pointers
   create_raspsynth(&app, &raspsynth_ctx);
+
+  cdsl_screen_t adsr_screen;
+  create_adsr_screen(&adsr_screen, &raspsynth_ctx.amp_adsr);
+
+  app.starting_screen = &adsr_screen;
+
 
   app_init(&app, &raspsynth_ctx);
 

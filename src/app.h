@@ -12,7 +12,7 @@ typedef struct screen cdsl_screen_t;
 
 typedef struct app {
   SDL_Renderer* const renderer;
-  cdsl_screen_t* const starting_screen;
+  cdsl_screen_t* starting_screen;
   cdsl_screen_t* active_screen;
 
   void (*init) (void* ctx);
