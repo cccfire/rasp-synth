@@ -26,6 +26,9 @@ typedef struct raspsynth_voice {
   ENVELOPE_STATE_T state;
 } raspsynth_voice_t;
 
+typedef struct raspsynth_voice_params {
+} raspsynth_voice_params_t;
+
 typedef struct raspsynth {
   int sample_rate;
   adsr_ctx_t* amp_adsr;
@@ -72,6 +75,9 @@ int raspsynth_audiogen_callback(
   const PaStreamCallbackTimeInfo* timeInfo,
   PaStreamCallbackFlags statusFlags,
   void* userData);
+
+void raspsynth_start_voice(int32_t pitch, int32_t velocity, raspsynth_ctx_t* ctx, 
+    raspsynth_voice_params_t* params, uint32_t time);
 
 #endif // RASPSYNTH_H
 

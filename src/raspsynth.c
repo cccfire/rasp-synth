@@ -23,7 +23,8 @@ void create_raspsynth(cdsl_app_t* out_app, raspsynth_ctx_t* out_ctx)
   out_ctx->num_voices = 0;
   out_ctx->voices_length = 10;
     
-  out_ctx->voices = (raspsynth_voice_t**)calloc(out_ctx->voices_length, sizeof(void*));
+  // initializes voices to all 0s (because that's how calloc works)
+  out_ctx->voices = (raspsynth_voice_t**) calloc(out_ctx->voices_length, sizeof(void*));
 }
 
 void destroy_raspsynth(cdsl_app_t* app, raspsynth_ctx_t* ctx)
@@ -55,13 +56,12 @@ void raspsynth_event_callback(const SDL_Event* event, raspsynth_ctx_t* ctx)
 
 void raspsynth_note_on(int32_t pitch, int32_t velocity, raspsynth_ctx_t* ctx)
 {
-  raspsynth_voice_t* voice = NULL;
-
-
-
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
-  voice->start_time = ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+  uint32_t time = ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+
+  raspsynth_voice_params_t params;
+  raspsynth_start_voice(pitch, velocity, ctx, &params, time);
 }
 
 void raspsynth_note_off(int32_t pitch, raspsynth_ctx_t* ctx)
@@ -78,8 +78,18 @@ void raspsynth_note_off(int32_t pitch, raspsynth_ctx_t* ctx)
   }
 
   assert(voice != NULL);
-  voice->state = RELEASE;
-  voice->filter_time = 0;
+
+  // for polyphony later, go back through and release all the voices with the same 
+  //   pitch and timestamp
+
+  for (int i = 0; i < ctx->num_voices; i++) {
+    if (ctx->voices[i]->pitch == voice->pitch
+     && ctx->voices[i]->start_time == voice->start_time) {
+      //
+      ctx->voices[i]->state = RELEASE;
+      ctx->voices[i]->filter_time = 0;
+    }
+  }
 }
 
 int raspsynth_audiogen_callback( 
@@ -115,5 +125,43 @@ int raspsynth_audiogen_callback(
     if( data->right_phase >= 1.0f ) data->right_phase -= 2.0f;
   }
   return 0;
+}
+
+void raspsynth_start_voice(int32_t pitch, int32_t velocity, raspsynth_ctx_t* ctx, 
+  raspsynth_voice_params_t* params, uint32_t time)
+{
+  raspsynth_voice_t** voice_position = NULL;
+
+  // Look for any free spots in the voices array and pick the first free slot
+  for (int i = 0; i < ctx->voices_length; i++) {
+    if (!ctx->voices[i]) {
+      voice_position = &(ctx->voices[i]);
+    }
+  }
+
+  // If we didn't find any free spots, we will need to expand the voices array
+  //   so double the length and realloc. 
+  if (voice_position == NULL) {
+    ctx->voices_length = ctx->voices_length * 2;
+    ctx->voices = (raspsynth_voice_t**) realloc(ctx->voices, 
+      sizeof(raspsynth_voice_t*) * ctx->voices_length);
+  }
+
+  // allocate space for the voice
+  raspsynth_voice_t* voice = (raspsynth_voice_t*) malloc(sizeof(raspsynth_voice_t));
+
+  // put that pointer in the voices array
+  *voice_position = voice;
+  
+  // set voice values
+  voice->start_time = time;
+  voice->filter_time = 0;
+  voice->pitch = pitch;
+  voice->velocity = velocity;
+  voice->left = 0.0f;
+  voice->right = 0.0f;
+  voice->oscDetune = 0.0f;
+  voice->oscDetuneMod = 0.0f;
+  voice->state = ATTACK;
 }
 

@@ -162,7 +162,24 @@ int main(int argc, char *argv[]) {
     if (Pm_Read(pm_stream, &pm_buffer, 1)) {
       PmMessage message = pm_buffer.message;
       printf("Midi message: %d\n", Pm_MessageData1(message));
+      int status = Pm_MessageStatus(pm_buffer.message);
+      int command = status & 0xF0;  // Upper 4 bits
+      int channel = status & 0x0F;  // Lower 4 bits
 
+      // Note on
+      if (command == 0x90) {
+        app.note_on(
+          (int32_t) Pm_MessageData1(pm_buffer.message),
+          (int32_t) Pm_MessageData2(pm_buffer.message),
+          &raspsynth_ctx);
+      }
+      // Note off
+      else if (command == 0x90) {
+        app.note_on(
+          (int32_t) Pm_MessageData1(pm_buffer.message),
+          (int32_t) Pm_MessageData2(pm_buffer.message),
+          &raspsynth_ctx);
+      }
     }
 
     app_draw(&app, &raspsynth_ctx);
