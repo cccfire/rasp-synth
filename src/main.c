@@ -198,5 +198,7 @@ int main(int argc, char *argv[]) {
   pmerr = Pm_Terminate();
   __pmerror_check(pmerr);
 
+  destroy_raspsynth(&app, &raspsynth_ctx);
+
   return 0;
 }

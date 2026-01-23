@@ -1,4 +1,11 @@
+#include <stdlib.h>
+#include <math.h>
+#include <assert.h>
+
 #include "raspsynth.h"
+
+float pival =
+    3.14159265358979323846;
 
 void create_raspsynth(cdsl_app_t* out_app, raspsynth_ctx_t* out_ctx)
 {
@@ -8,7 +15,27 @@ void create_raspsynth(cdsl_app_t* out_app, raspsynth_ctx_t* out_ctx)
   out_app->audiogen_callback = raspsynth_audiogen_callback;
 
   out_ctx->left_phase = 0.0;
-  out_ctx->left_phase = 0.0;
+  out_ctx->right_phase = 0.0;
+
+  out_ctx->num_voices = 0;
+  out_ctx->voices_length = 10;
+    
+  out_ctx->voices = (raspsynth_voice_t**)calloc(out_ctx->voices_length, sizeof(void*));
+}
+
+void destroy_raspsynth(cdsl_app_t* app, raspsynth_ctx_t* ctx)
+{
+  assert(ctx->voices != NULL && ctx->voices_length != 0);
+
+  // if there are active voices left, iterate through and free them
+  for (int i = 0; i < ctx->num_voices; i++) {
+    free(ctx->voices[i]);
+  }
+
+  ctx->num_voices = 0;
+  ctx->voices_length = 0;
+  free(ctx->voices);
+  ctx->voices = NULL;
 }
 
 void raspsynth_init(raspsynth_ctx_t* ctx)
@@ -24,6 +51,10 @@ void raspsynth_event_callback(const SDL_Event* event, raspsynth_ctx_t* ctx)
 
 }
 
+void raspsynth_add_voice(raspsynth_ctx_t* out_ctx)
+{
+}
+
 int raspsynth_audiogen_callback( 
   const void* input,
   void* output,
@@ -36,6 +67,13 @@ int raspsynth_audiogen_callback(
   float *out = (float*) output;
   unsigned int i;
   (void) input; /* Prevent unused variable warning. */
+
+  /*
+  float baseFreq = 440.0 * pow(2.0, ((key + pitchNoteExpressionValue + pitchBendWheel +
+                                  (oscDetune + oscDetuneMod) / 100) -
+                                 69.0) /
+                                    12.0);
+  */
   
   for( i = 0; i < frameCount; i++ )
   {
