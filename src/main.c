@@ -18,21 +18,33 @@
 #define SAMPLE_RATE (44100)
 
 
-void __error_check(PaError err)
+void __paerror_check(PaError paerr)
 {
-  if(err != paNoError)
-    printf(  "PortAudio error: %s\n", Pa_GetErrorText( err ) );
-  assert(err == paNoError);
+  if(paerr != paNoError)
+    printf(  "PortAudio error: %s\n", Pa_GetErrorText( paerr ) );
+  assert(paerr == paNoError);
+}
+
+void __pmerror_check(PaError pmerr)
+{
+  if(pmerr != pmNoError)
+    printf(  "PortMidi error: %s\n", Pm_GetErrorText( pmerr ) );
+  assert(pmerr == pmNoError);
 }
 
 int main(int argc, char *argv[]) {
+  // Initialization
   SDL_Init(SDL_INIT_VIDEO);
 
-  PaError err = Pa_Initialize();
-  __error_check(err);
+  PaError paerr = Pa_Initialize();
+  __paerror_check(paerr);
+
+  PmError pmerr = Pm_Initialize();
+  __pmerror_check(pmerr);
 
   bool done = false;
 
+  // Create window
   SDL_Window *window = SDL_CreateWindow(
     "Raspsynth", // window title
     800, // window width px
@@ -71,7 +83,7 @@ int main(int argc, char *argv[]) {
   app_init(&app, &raspsynth_ctx);
 
   PaStream* stream;
-  err = Pa_OpenDefaultStream( &stream,
+  paerr = Pa_OpenDefaultStream( &stream,
                                 0,          /* no input channels */
                                 2,          /* stereo output */
                                 paFloat32,  /* 32 bit floating point output */
@@ -80,10 +92,10 @@ int main(int argc, char *argv[]) {
                                 app.audiogen_callback,
                                 (void*) &raspsynth_ctx);
 
-  __error_check(err);
+  __paerror_check(paerr);
 
-  err = Pa_StartStream(stream);
-  __error_check(err);
+  paerr = Pa_StartStream(stream);
+  __paerror_check(paerr);
   
   while (!done) {
     SDL_Event event;
@@ -115,18 +127,23 @@ int main(int argc, char *argv[]) {
     SDL_Delay(16);
     */
   }
+
+  // End program, clean up loose ends.
   
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
   SDL_Quit();
 
-  err = Pa_StopStream(stream);
-  __error_check(err);
-  err = Pa_CloseStream(stream);
-  __error_check(err);
+  paerr = Pa_StopStream(stream);
+  __paerror_check(paerr);
+  paerr = Pa_CloseStream(stream);
+  __paerror_check(paerr);
 
-  err = Pa_Terminate();
-  __error_check(err);
+  paerr = Pa_Terminate();
+  __paerror_check(paerr);
+
+  pmerr = Pm_Terminate();
+  __pmerror_check(pmerr);
 
   return 0;
 }
