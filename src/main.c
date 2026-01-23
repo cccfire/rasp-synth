@@ -17,17 +17,26 @@
 
 #define SAMPLE_RATE (44100)
 
+void __print_device_info()
+{
+  int num_devices = Pm_CountDevices();
+  for (int i = 0; i < num_devices; i++) {
+    const PmDeviceInfo* info = Pm_GetDeviceInfo(i);
+    assert(info != NULL);
+    printf( "Device %d: %s\n", i, info->name );
+  }
+}
 
 void __paerror_check(PaError paerr)
 {
-  if(paerr != paNoError)
+  if (paerr != paNoError)
     printf(  "PortAudio error: %s\n", Pa_GetErrorText( paerr ) );
   assert(paerr == paNoError);
 }
 
 void __pmerror_check(PaError pmerr)
 {
-  if(pmerr != pmNoError)
+  if (pmerr != pmNoError)
     printf(  "PortMidi error: %s\n", Pm_GetErrorText( pmerr ) );
   assert(pmerr == pmNoError);
 }
@@ -41,6 +50,7 @@ int main(int argc, char *argv[]) {
 
   PmError pmerr = Pm_Initialize();
   __pmerror_check(pmerr);
+  __print_device_info();
 
   bool done = false;
 
