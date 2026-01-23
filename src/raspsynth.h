@@ -62,8 +62,8 @@ void raspsynth_init(raspsynth_ctx_t* ctx);
 void raspsynth_on_draw(raspsynth_ctx_t* ctx);
 void raspsynth_event_callback(const SDL_Event* event, raspsynth_ctx_t* ctx);
 
-void raspsynth_add_voice(int32_t pitch, int32_t velocity, raspsynth_ctx_t* ctx);
-void raspsynth_note_off(int32_t pitch, raspsynth_ctx_t* ctx);
+void raspsynth_note_on(const int32_t pitch, const int32_t velocity, raspsynth_ctx_t* ctx);
+void raspsynth_note_off(const int32_t pitch, raspsynth_ctx_t* ctx);
 
 int raspsynth_audiogen_callback( 
   const void* input,

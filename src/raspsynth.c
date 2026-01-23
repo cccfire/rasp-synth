@@ -14,6 +14,8 @@ void create_raspsynth(cdsl_app_t* out_app, raspsynth_ctx_t* out_ctx)
   out_app->on_draw = (void (*) (void*)) raspsynth_on_draw;
   out_app->event_callback = (void (*) (const SDL_Event*, void*)) raspsynth_event_callback;
   out_app->audiogen_callback = raspsynth_audiogen_callback;
+  out_app->note_on = (void (*) (const int32_t, const int32_t, void* )) raspsynth_note_on;
+  out_app->note_off = (void (*) (const int32_t, void*)) raspsynth_note_off;
 
   out_ctx->left_phase = 0.0;
   out_ctx->right_phase = 0.0;

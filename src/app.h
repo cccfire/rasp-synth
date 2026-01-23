@@ -19,6 +19,8 @@ typedef struct app {
   int (*audiogen_callback) ( const void*, void*, unsigned long, 
       const PaStreamCallbackTimeInfo*, PaStreamCallbackFlags, void*);
   void (*event_callback) (const SDL_Event*, void*);
+  void (*note_on) (const int32_t pitch, const int32_t velocity, void* ctx);
+  void (*note_off) (const int32_t pitch, void* ctx);
 } cdsl_app_t;
 
 void app_init (cdsl_app_t* const app, void* app_ctx);

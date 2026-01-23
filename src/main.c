@@ -162,6 +162,7 @@ int main(int argc, char *argv[]) {
     if (Pm_Read(pm_stream, &pm_buffer, 1)) {
       PmMessage message = pm_buffer.message;
       printf("Midi message: %d\n", Pm_MessageData1(message));
+
     }
 
     app_draw(&app, &raspsynth_ctx);
