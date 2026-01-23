@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <stdio.h>
+#include <time.h>
 
 #include <portaudio.h>
 #include <portmidi.h>
@@ -41,6 +42,12 @@ void __pmerror_check(PaError pmerr)
   assert(pmerr == pmNoError);
 }
 
+int32_t __time_proc(void *time_info) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;  // milliseconds
+}
+
 int main(int argc, char *argv[]) {
   // Initialization
   SDL_Init(SDL_INIT_VIDEO);
@@ -53,6 +60,10 @@ int main(int argc, char *argv[]) {
   __print_device_info();
 
   bool done = false;
+
+  /**
+   * SDL init
+   */
 
   // Create window
   SDL_Window *window = SDL_CreateWindow(
@@ -71,8 +82,31 @@ int main(int argc, char *argv[]) {
 
   SDL_Renderer *renderer = SDL_CreateRenderer(window, NULL);
 
-  /*
-  */
+  ////
+
+  /**
+   * using portmidi to open a MIDI input stream for development purposes
+   */
+
+  int num_devices = Pm_CountDevices();
+  const PmDeviceInfo* info = Pm_GetDeviceInfo(num_devices - 1);
+  assert(info != NULL);
+  printf( "Opening Input Stream from Device %d: %s\n", num_devices - 1, info->name );
+
+  PortMidiStream* pm_stream;
+  PmEvent pm_buffer;
+  void* time_info;
+
+  pmerr = Pm_OpenInput(
+    &pm_stream,
+    num_devices - 1,
+    NULL,
+    512,
+    __time_proc,
+    time_info);
+  __pmerror_check(pmerr);
+
+  assert (pm_stream != NULL);
 
   cdsl_screen_t adsr_screen;
   adsr_ctx_t adsr_ctx;
@@ -125,6 +159,12 @@ int main(int argc, char *argv[]) {
       app_event(&app, &event, &raspsynth_ctx);
     }
 
+    // Poll for Portmidi events
+    if (Pm_Read(pm_stream, &pm_buffer, 1)) {
+      PmMessage message = pm_buffer.message;
+      printf("Midi message: %d\n", Pm_MessageData1(message));
+    }
+
     app_draw(&app, &raspsynth_ctx);
 
     // TODO: Should it be the screen's responsibility to present?
@@ -151,6 +191,9 @@ int main(int argc, char *argv[]) {
 
   paerr = Pa_Terminate();
   __paerror_check(paerr);
+
+  pmerr = Pm_Close(pm_stream);
+  __pmerror_check(pmerr);
 
   pmerr = Pm_Terminate();
   __pmerror_check(pmerr);
