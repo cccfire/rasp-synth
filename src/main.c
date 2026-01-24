@@ -163,7 +163,6 @@ int main(int argc, char *argv[]) {
     // Poll for Portmidi events
     if (Pm_Read(pm_stream, &pm_buffer, 1)) {
       PmMessage message = pm_buffer.message;
-      printf("Midi message: %d\n", Pm_MessageData1(message));
       int status = Pm_MessageStatus(pm_buffer.message);
       int command = status & 0xF0;  // Upper 4 bits
       int channel = status & 0x0F;  // Lower 4 bits

@@ -6,7 +6,7 @@
 
 #include "raspsynth.h"
 
-const float global_gain = 0.25;
+const float global_gain = 0.025;
 
 const float pival =
     3.14159265358979323846;
@@ -131,7 +131,6 @@ int raspsynth_audiogen_callback(
 
   
   for(int i = 0; i < frameCount; i++) {
-    float voice_gain = ctx->num_voices ? 1.0f / ctx->num_voices : 1.0f;
 
     // Accumulators for left and right
     float left_acc = 0.0f;
@@ -149,8 +148,8 @@ int raspsynth_audiogen_callback(
         // the voice may no longer exist after process!
         ctx->voices[j]->process(ctx, ctx->voices[j], &out_l, &out_r);
 
-        left_acc += out_l * voice_gain;
-        right_acc += out_r * voice_gain;
+        left_acc += out_l;
+        right_acc += out_r;
       }
     }
     *out++ = fmax(-1.0f, fmin(1.0f, global_gain * left_acc));  // left 
@@ -247,68 +246,61 @@ void raspsynth_process_adsr (raspsynth_ctx_t* ctx, raspsynth_voice_t* voice, flo
   float seconds = ((float) voice->frame_count) / SAMPLE_RATE;
   adsr_ctx_t adsr = voice->adsr;
   float modifier = 0.0f;
-  switch (voice->state) {
-    case ATTACK:
-      modifier = adsr.attack ? fminf(1.0f, seconds / adsr.attack) : 1.0f;
-      *out_l = *out_l * modifier;
-      *out_r = *out_r * modifier;
 
-      if (seconds > adsr.attack) {
-        voice->state = HOLD;
-      }
-      voice->release_level = modifier;
-      break;
-    case HOLD:
-      voice->release_level = 1.0f;
-      modifier = 1.0f;
-      *out_l = *out_l * modifier;
-      *out_r = *out_r * modifier;
-      voice->release_level = modifier;
-      if (seconds - adsr.attack > adsr.hold) {
-        voice->state = DECAY;
-        break;
-      }
-      break;
-    case DECAY:
-      if (seconds - adsr.attack - adsr.hold > adsr.decay || adsr.decay == 0.0) {
-        voice->state = SUSTAIN;
-        modifier = adsr.sustain;
-      } else { 
-        float t = (seconds - adsr.attack - adsr.hold) / adsr.decay;  // 0.0 to 1.0
-        modifier = 1.0f - (t * (1.0f - adsr.sustain));
-      }
-      
+  if (voice->state == ATTACK) {
+    modifier = adsr.attack ? fminf(1.0f, seconds / adsr.attack) : 1.0f;
+    *out_l = *out_l * modifier;
+    *out_r = *out_r * modifier;
+
+    if (seconds >= adsr.attack) {
+      voice->state = HOLD;
+    }
+    voice->release_level = modifier;
+  }
+  if (voice->state == HOLD) {
+    voice->release_level = 1.0f;
+    modifier = 1.0f;
+    *out_l = *out_l * modifier;
+    *out_r = *out_r * modifier;
+    voice->release_level = modifier;
+    if (seconds - adsr.attack > adsr.hold) {
+      voice->state = DECAY;
+    }
+  }
+  if (voice->state == DECAY) {
+    if (seconds - adsr.attack - adsr.hold > adsr.decay || adsr.decay == 0.0) {
+      voice->state = SUSTAIN;
+    } else { 
+      float t = (seconds - adsr.attack - adsr.hold) / adsr.decay;  // 0.0 to 1.0
+      modifier = 1.0f - (t * (1.0f - adsr.sustain));
       *out_l = *out_l * modifier;
       *out_r = *out_r * modifier;
       voice->release_level = modifier;
-
-
-      break;
-    case SUSTAIN:
-      modifier = adsr.sustain;
-      *out_l = *out_l * modifier;
-      *out_r = *out_r * modifier;
-      voice->release_level = modifier;
-      break;
-    case RELEASE:
-      // RELEASE is set by note_off and when RELEASE is set, the frame_count is set to 0.
-      if (seconds >= adsr.release || adsr.release == 0) {
-        // We delete the voice.
-        raspsynth_remove_voice(ctx, voice);
-        *out_l = 0;
-        *out_r = 0;
-        break;
-      }
-
+    }
+  }
+  if (voice->state == SUSTAIN) {
+    modifier = adsr.sustain;
+    *out_l = *out_l * modifier;
+    *out_r = *out_r * modifier;
+    voice->release_level = modifier;
+  }
+  if (voice->state == RELEASE) {
+    // RELEASE is set by note_off and when RELEASE is set, the frame_count is set to 0.
+    if (seconds >= adsr.release || adsr.release == 0) {
+      // We delete the voice.
+      raspsynth_remove_voice(ctx, voice);
+      *out_l = 0;
+      *out_r = 0;
+    } else {
       modifier = (1.0f - (seconds / adsr.release)) * voice->release_level;
       *out_l = *out_l * modifier;
       *out_r = *out_r * modifier;
-
-      break;
-    case OFF:
-      raspsynth_remove_voice(ctx, voice);
-      break;
+    }
   }
+  if (voice->state == OFF) {
+    raspsynth_remove_voice(ctx, voice);
+  }
+  
   *out_l = fmax(-1.0f, fmin(1.0f, *out_l));  // left 
   *out_r = fmax(-1.0f, fmin(1.0f, *out_r));  // right 
 }
