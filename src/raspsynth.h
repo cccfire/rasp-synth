@@ -6,46 +6,33 @@
 #include <portaudio.h>
 #include <SDL3/SDL_surface.h>
 
-#include "adsr_screen.h"
+#include "adsr.h"
+#include "voice.h"
+#include "app.h"
 
 #define SAMPLE_RATE (44100)
 
-typedef enum envelope_state {
-  OFF, ATTACK, HOLD, DECAY, SUSTAIN, RELEASE
-} ENVELOPE_STATE_T;
-
-typedef struct raspsynth_voice raspsynth_voice_t;
 typedef struct raspsynth raspsynth_ctx_t;
 
-typedef struct raspsynth_voice {
-  uint32_t start_time;
-  uint64_t frame_count;
-  int32_t pitch;
-  int32_t velocity;
-  float left_phase;
-  float right_phase;
-  float oscDetune;
-  float oscDetuneMod;
-  adsr_ctx_t adsr;
-  ENVELOPE_STATE_T state;
-  float release_level;
-  void (*step) (raspsynth_voice_t* voice);
-  void (*process) (raspsynth_ctx_t* const ctx, raspsynth_voice_t* voice, float* out_l, float* out_r);
-} raspsynth_voice_t;
+
+typedef struct raspsynth_voice_ctx {
+  adsr_t amp_adsr;
+  adsr_t filter_adsr;
+} raspsynth_voice_ctx_t;
 
 typedef struct raspsynth_voice_params {
 } raspsynth_voice_params_t;
 
 typedef struct raspsynth {
   int sample_rate;
-  adsr_ctx_t amp_adsr;
-  adsr_ctx_t filter_adsr;
+  adsr_t amp_adsr;
+  adsr_t filter_adsr;
   float left_phase;
   float right_phase;
   int num_voices;
   int voices_length;
   uint64_t current_frame;
-  raspsynth_voice_t** voices;
+  voice_t** voices;
 } raspsynth_ctx_t;
 
 /**
@@ -87,11 +74,16 @@ int raspsynth_audiogen_callback(
 void raspsynth_start_voice(int32_t pitch, int32_t velocity, raspsynth_ctx_t* ctx, 
     raspsynth_voice_params_t* params, uint32_t time);
 
-void raspsynth_remove_voice(raspsynth_ctx_t* ctx, raspsynth_voice_t* voice);
+void raspsynth_remove_voice(raspsynth_ctx_t* ctx, voice_t* voice);
 
-void raspsynth_step (raspsynth_voice_t* voice); 
+void raspsynth_voice_init (void* ctx, voice_t* voice, void* voice_ctx, int32_t pitch, int32_t velocity, uint32_t time);
 
-void raspsynth_process_adsr (raspsynth_ctx_t* ctx, raspsynth_voice_t* voice, float* out_l, float* out_r);
-void raspsynth_sine_process (raspsynth_ctx_t* ctx, raspsynth_voice_t* voice, float* out_l, float* out_r);
+void raspsynth_voice_step (raspsynth_ctx_t* ctx, voice_t* voice); 
+
+void raspsynth_sine_process (raspsynth_ctx_t* ctx, voice_t* voice, float* out_l, float* out_r);
+
+void raspsynth_voice_on_release (raspsynth_ctx_t* ctx, voice_t* voice); 
+bool raspsynth_voice_should_kill (raspsynth_ctx_t* app_ctx, voice_t* voice);
+bool raspsynth_voice_is_released (raspsynth_ctx_t* ctx, voice_t* voice); 
 #endif // RASPSYNTH_H
 

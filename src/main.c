@@ -11,6 +11,7 @@
 
 #include "empty_stubs.h"
 
+#include "adsr.h"
 #include "adsr_screen.h"
 #include "raspsynth.h"
 #include "screen.h"
