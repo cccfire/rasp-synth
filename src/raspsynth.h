@@ -11,7 +11,7 @@
 #define SAMPLE_RATE (44100)
 
 typedef enum envelope_state {
-  OFF, ATTACK, HOLD, DECAY, RELEASE
+  OFF, ATTACK, HOLD, DECAY, SUSTAIN, RELEASE
 } ENVELOPE_STATE_T;
 
 typedef struct raspsynth_voice raspsynth_voice_t;
@@ -28,6 +28,7 @@ typedef struct raspsynth_voice {
   float oscDetuneMod;
   adsr_ctx_t adsr;
   ENVELOPE_STATE_T state;
+  float release_level;
   void (*step) (raspsynth_voice_t* voice);
   void (*process) (raspsynth_ctx_t* const ctx, raspsynth_voice_t* voice, float* out_l, float* out_r);
 } raspsynth_voice_t;
@@ -90,7 +91,7 @@ void raspsynth_remove_voice(raspsynth_ctx_t* ctx, raspsynth_voice_t* voice);
 
 void raspsynth_step (raspsynth_voice_t* voice); 
 
-void raspsynth_process_adsr (raspsynth_ctx_t* const ctx, raspsynth_voice_t* voice, float* out_l, float* out_r);
-void raspsynth_sine_process (raspsynth_ctx_t* const ctx, raspsynth_voice_t* voice, float* out_l, float* out_r);
+void raspsynth_process_adsr (raspsynth_ctx_t* ctx, raspsynth_voice_t* voice, float* out_l, float* out_r);
+void raspsynth_sine_process (raspsynth_ctx_t* ctx, raspsynth_voice_t* voice, float* out_l, float* out_r);
 #endif // RASPSYNTH_H
 

@@ -120,7 +120,7 @@ int main(int argc, char *argv[]) {
   create_raspsynth(&app, &raspsynth_ctx);
 
   cdsl_screen_t adsr_screen;
-  create_adsr_screen(&adsr_screen, &raspsynth_ctx.amp_adsr);
+  create_adsr_screen(&adsr_screen, &(raspsynth_ctx.amp_adsr));
 
   app.starting_screen = &adsr_screen;
 

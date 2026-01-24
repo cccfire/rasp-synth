@@ -25,7 +25,19 @@ void create_raspsynth(cdsl_app_t* out_app, raspsynth_ctx_t* out_ctx)
   out_ctx->voices_length = 10;
 
   out_ctx->current_frame = 0;
-    
+
+  out_ctx->amp_adsr.attack = 0.3;
+  out_ctx->amp_adsr.hold = 0.7;
+  out_ctx->amp_adsr.decay = 1.0;
+  out_ctx->amp_adsr.sustain = 0.7;
+  out_ctx->amp_adsr.release = 0.5;
+
+  out_ctx->filter_adsr.attack = 0.3;
+  out_ctx->filter_adsr.hold = 0.7;
+  out_ctx->filter_adsr.decay = 1.0;
+  out_ctx->filter_adsr.sustain = 0.7;
+  out_ctx->filter_adsr.release = 0.5;
+
   // initializes voices to all 0s (because that's how calloc works)
   out_ctx->voices = (raspsynth_voice_t**) calloc(out_ctx->voices_length, sizeof(void*));
 }
@@ -179,6 +191,10 @@ void raspsynth_start_voice(int32_t pitch, int32_t velocity, raspsynth_ctx_t* ctx
     ctx->voices_length = ctx->voices_length * 2;
     ctx->voices = (raspsynth_voice_t**) realloc(ctx->voices, 
       sizeof(raspsynth_voice_t*) * ctx->voices_length);
+    // realloc doesn't automatically zero out the memory block, so we must do it ourselves.
+    for (int i = length; i < ctx->voices_length; i++) {
+      ctx->voices[i] = NULL;
+    }
     ctx->voices[length] = voice;
   }
 
@@ -186,14 +202,16 @@ void raspsynth_start_voice(int32_t pitch, int32_t velocity, raspsynth_ctx_t* ctx
   
   // set voice values
   voice->start_time = time;
-  voice->frame_count= 0;
+  voice->frame_count = 0;
   voice->pitch = pitch;
   voice->velocity = velocity;
   voice->left_phase = 0.0f;
   voice->right_phase = 0.0f;
   voice->oscDetune = 0.0f;
   voice->oscDetuneMod = 0.0f;
+  voice->adsr = ctx->amp_adsr;
   voice->state = ATTACK;
+  voice->release_level = 0.0f;
 
   voice->step = raspsynth_step;
   voice->process = raspsynth_sine_process;
@@ -228,50 +246,65 @@ void raspsynth_step (raspsynth_voice_t* voice)
   voice->right_phase += baseFreq / SAMPLE_RATE;
 }
 
-void raspsynth_process_adsr (raspsynth_ctx_t* const ctx, raspsynth_voice_t* voice, float* out_l, float* out_r)
+void raspsynth_process_adsr (raspsynth_ctx_t* ctx, raspsynth_voice_t* voice, float* out_l, float* out_r)
 {
   float seconds = ((float) voice->frame_count) / SAMPLE_RATE;
-  assert (seconds);
-  float modifier = 0.0f;
   adsr_ctx_t adsr = voice->adsr;
+  float modifier = 0.0f;
   switch (voice->state) {
     case ATTACK:
-      modifier = seconds ? (seconds / adsr.attack) : 0;
+      modifier = adsr.attack ? fminf(1.0f, seconds / adsr.attack) : 1.0f;
       *out_l = *out_l * modifier;
       *out_r = *out_r * modifier;
 
       if (seconds > adsr.attack) {
         voice->state = HOLD;
       }
+      voice->release_level = modifier;
       break;
     case HOLD:
+      voice->release_level = 1;
       if (seconds - adsr.attack > adsr.hold) {
         voice->state = DECAY;
         break;
       }
       break;
     case DECAY:
-      if (seconds - adsr.attack - adsr.hold > adsr.decay) {
-        modifier = adsr.sustain;
-      } else {
-        modifier = (seconds - adsr.attack - adsr.hold) ? 
-          (1.0f - ((seconds - adsr.attack - adsr.hold) / adsr.decay)) 
-          * (1.0f - adsr.sustain) + adsr.sustain : 1;
-      }
-        *out_l = *out_l * modifier;
-        *out_r = *out_r * modifier;
 
+      modifier = adsr.decay ? 
+        fmax(adsr.sustain, 1.0f - ((seconds - adsr.attack - adsr.hold) / adsr.decay)) 
+        * (1.0f - adsr.sustain) + adsr.sustain : 1;
+      
+      *out_l = *out_l * modifier;
+      *out_r = *out_r * modifier;
+      voice->release_level = modifier;
+
+      if (seconds - adsr.attack - adsr.hold > adsr.decay) {
+        voice->state = SUSTAIN;
+        break;
+      } 
+
+      break;
+    case SUSTAIN:
+      modifier = adsr.sustain;
+      *out_l = *out_l * modifier;
+      *out_r = *out_r * modifier;
+      voice->release_level = modifier;
       break;
     case RELEASE:
       // RELEASE is set by note_off and when RELEASE is set, the frame_count is set to 0.
-      modifier = (1.0f - (adsr.release / seconds));
+      if (seconds >= adsr.release || adsr.release == 0) {
+        // We delete the voice.
+        raspsynth_remove_voice(ctx, voice);
+        *out_l = 0;
+        *out_r = 0;
+        break;
+      }
+
+      modifier = (1.0f - (seconds / adsr.release)) * voice->release_level;
       *out_l = *out_l * modifier;
       *out_r = *out_r * modifier;
 
-      if (seconds > adsr.release) {
-        // We delete the voice.
-        raspsynth_remove_voice(ctx, voice);
-      }
       break;
     case OFF:
       raspsynth_remove_voice(ctx, voice);
@@ -279,10 +312,10 @@ void raspsynth_process_adsr (raspsynth_ctx_t* const ctx, raspsynth_voice_t* voic
   }
 }
 
-void raspsynth_sine_process (raspsynth_ctx_t* const ctx, raspsynth_voice_t* voice, float* out_l, float* out_r)
+void raspsynth_sine_process (raspsynth_ctx_t* ctx, raspsynth_voice_t* voice, float* out_l, float* out_r)
 {
   *out_l = sinf(voice->left_phase * 2.0f * M_PI);
   *out_r = sinf(voice->right_phase * 2.0f * M_PI);
 
-  //raspsynth_process_adsr(ctx, voice, out_l, out_r);
+  raspsynth_process_adsr(ctx, voice, out_l, out_r);
 }
