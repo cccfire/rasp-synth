@@ -91,7 +91,7 @@ static void __render_rect_frame (SDL_Renderer* renderer, float margin)
   SDL_RenderRect(renderer, &rect);
 }
 
-void create_adsr_screen (cdsl_screen_t* const out_screen, adsr_ctx_t* const out_ctx) 
+void create_adsr_screen (cdsl_screen_t* const out_screen, adsr_t* const out_ctx) 
 {
   out_screen->is_initialized = false;
   out_screen->ctx = (void*) out_ctx;
@@ -102,7 +102,7 @@ void create_adsr_screen (cdsl_screen_t* const out_screen, adsr_ctx_t* const out_
   out_screen->event_callback = (void (*) (cdsl_app_t*, const SDL_Event*, void*)) adsr_event_callback;
 }
 
-void adsr_init (cdsl_app_t* app, adsr_ctx_t* ctx) 
+void adsr_init (cdsl_app_t* app, adsr_t* ctx) 
 {
   // Default values for adsr:
   /*
@@ -114,15 +114,15 @@ void adsr_init (cdsl_app_t* app, adsr_ctx_t* ctx)
   */
 }
 
-void adsr_on_enter (cdsl_app_t* app, adsr_ctx_t* ctx) 
+void adsr_on_enter (cdsl_app_t* app, adsr_t* ctx) 
 {
 }
 
-void adsr_on_exit (cdsl_app_t* app, adsr_ctx_t* ctx) 
+void adsr_on_exit (cdsl_app_t* app, adsr_t* ctx) 
 {
 }
 
-void adsr_draw (cdsl_app_t* app, SDL_Renderer* renderer, adsr_ctx_t* ctx) 
+void adsr_draw (cdsl_app_t* app, SDL_Renderer* renderer, adsr_t* ctx) 
 {
   
 
@@ -198,7 +198,7 @@ void adsr_draw (cdsl_app_t* app, SDL_Renderer* renderer, adsr_ctx_t* ctx)
   __render_axis(renderer, margin, width_split, 2);
 }
 
-void adsr_event_callback (cdsl_app_t* app, const SDL_Event* event, adsr_ctx_t* ctx)
+void adsr_event_callback (cdsl_app_t* app, const SDL_Event* event, adsr_t* ctx)
 {
 }
 

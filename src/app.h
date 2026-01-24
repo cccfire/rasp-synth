@@ -5,8 +5,8 @@
 
 #include <portmidi.h>
 #include <portaudio.h>
-#include <SDL3/SDL_surface.h>
 
+#include <SDL3/SDL_render.h>
 // forward decls
 typedef struct screen cdsl_screen_t;
 
