@@ -45,7 +45,6 @@ double process_adsr (adsr_t* adsr, int sample_rate)
   if (adsr->state == RELEASE) {
     // RELEASE is set by note_off and when RELEASE is set, the frame_count is set to 0.
     if (seconds >= adsr->release || adsr->release == 0) {
-      // We delete the adsr.
       adsr->state = OFF;
       
       out = 0;
@@ -55,6 +54,7 @@ double process_adsr (adsr_t* adsr, int sample_rate)
     }
   }
   if (adsr->state == OFF) {
+    out = 0.0;
   }
   
   return fmax(-1.0f, fmin(1.0f, out));  

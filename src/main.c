@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <time.h>
+#include <pthread.h>
 
 #include <portaudio.h>
 #include <portmidi.h>
@@ -70,7 +71,8 @@ int main(int argc, char *argv[]) {
     "Raspsynth", // window title
     800, // window width px
     600, // window height px
-    SDL_WINDOW_FULLSCREEN | SDL_WINDOW_ALWAYS_ON_TOP // flags - we want the window to always be active
+    0
+    // SDL_WINDOW_FULLSCREEN | SDL_WINDOW_ALWAYS_ON_TOP // flags - we want the window to always be active
   );
 
   // Check that window creation was successful
