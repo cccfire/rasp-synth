@@ -41,6 +41,8 @@ void create_raspsynth(cdsl_app_t* out_app, raspsynth_ctx_t* out_ctx)
   out_ctx->filter_adsr.sustain = 0.7;
   out_ctx->filter_adsr.release = 0.5;
 
+  pthread_mutex_init(&(out_ctx->mutex), NULL);
+
   // initializes voices to all 0s (because that's how calloc works)
   out_ctx->voices = (voice_t**) calloc(out_ctx->voices_length, sizeof(void*));
 }

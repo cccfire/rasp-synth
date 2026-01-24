@@ -2,6 +2,7 @@
 #define RASPSYNTH_H
 
 #include <stdbool.h>
+#include <pthread.h>
 
 #include <portaudio.h>
 #include <SDL3/SDL_surface.h>
@@ -32,6 +33,7 @@ typedef struct raspsynth {
   int num_voices;
   int voices_length;
   uint64_t current_frame;
+  pthread_mutex_t mutex;
   voice_t** voices;
 } raspsynth_ctx_t;
 
