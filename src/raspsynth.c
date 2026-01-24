@@ -47,7 +47,7 @@ void destroy_raspsynth(cdsl_app_t* app, raspsynth_ctx_t* ctx)
   assert(ctx->voices != NULL && ctx->voices_length != 0);
 
   // if there are active voices left, iterate through and free them
-  for (int i = 0; i < ctx->num_voices; i++) {
+  for (int i = 0; i < ctx->voices_length; i++) {
     free(ctx->voices[i]);
   }
 
@@ -82,9 +82,9 @@ void raspsynth_note_on(int32_t pitch, int32_t velocity, raspsynth_ctx_t* ctx)
 void raspsynth_note_off(int32_t pitch, raspsynth_ctx_t* ctx)
 {
   raspsynth_voice_t* voice = NULL;
-  for (int i = 0; i < ctx->num_voices; i++) {
-    if (ctx->voices[i]->pitch == pitch && ctx->voices[i]->state != RELEASE) {
-      if (voice == 0) {
+  for (int i = 0; i < ctx->voices_length; i++) {
+    if (ctx->voices[i] && ctx->voices[i]->pitch == pitch && ctx->voices[i]->state != RELEASE) {
+      if (voice == NULL) {
         voice = ctx->voices[i];
       } else if (ctx->voices[i]->start_time < voice->start_time){
         voice = ctx->voices[i];
@@ -97,8 +97,9 @@ void raspsynth_note_off(int32_t pitch, raspsynth_ctx_t* ctx)
   // for polyphony later, go back through and release all the voices with the same 
   //   pitch and timestamp
 
-  for (int i = 0; i < ctx->num_voices; i++) {
-    if (ctx->voices[i]->pitch == voice->pitch
+  for (int i = 0; i < ctx->voices_length; i++) {
+    if (ctx->voices[i]
+     && ctx->voices[i]->pitch == voice->pitch
      && ctx->voices[i]->start_time == voice->start_time) {
       //
       ctx->voices[i]->state = RELEASE;

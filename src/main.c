@@ -176,10 +176,9 @@ int main(int argc, char *argv[]) {
           &raspsynth_ctx);
       }
       // Note off
-      else if (command == 0x90) {
-        app.note_on(
+      else if (command == 0x80) {
+        app.note_off(
           (int32_t) Pm_MessageData1(pm_buffer.message),
-          (int32_t) Pm_MessageData2(pm_buffer.message),
           &raspsynth_ctx);
       }
     }
