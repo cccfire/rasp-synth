@@ -2,7 +2,6 @@
 #define RASPSYNTH_H
 
 #include <stdbool.h>
-#include <pthread.h>
 
 #include <portaudio.h>
 #include <SDL3/SDL_surface.h>
@@ -32,8 +31,9 @@ typedef struct raspsynth {
   float right_phase;
   int num_voices;
   int voices_length;
+  voice_queue_t voices_to_add;
+  voice_queue_t voices_to_remove;
   uint64_t current_frame;
-  pthread_mutex_t mutex;
   voice_t** voices;
 } raspsynth_ctx_t;
 
@@ -72,6 +72,9 @@ int raspsynth_audiogen_callback(
   const PaStreamCallbackTimeInfo* timeInfo,
   PaStreamCallbackFlags statusFlags,
   void* userData);
+
+void raspsynth_process_add_queue(raspsynth_ctx_t* ctx);
+void raspsynth_process_remove_queue(raspsynth_ctx_t* ctx);
 
 void raspsynth_start_voice(int32_t pitch, int32_t velocity, raspsynth_ctx_t* ctx, 
     raspsynth_voice_params_t* params, uint32_t time);

@@ -1,9 +1,9 @@
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
 #include <assert.h>
 #include <time.h>
-#include <pthread.h>
 
 #include "raspsynth.h"
 
@@ -41,7 +41,13 @@ void create_raspsynth(cdsl_app_t* out_app, raspsynth_ctx_t* out_ctx)
   out_ctx->filter_adsr.sustain = 0.7;
   out_ctx->filter_adsr.release = 0.5;
 
-  pthread_mutex_init(&(out_ctx->mutex), NULL);
+  atomic_init(&out_ctx->voices_to_add.write_idx, 0);
+  atomic_init(&out_ctx->voices_to_add.read_idx, 0);
+  atomic_init(&out_ctx->voices_to_add.dropped_count, 0);
+  
+  atomic_init(&out_ctx->voices_to_remove.write_idx, 0);
+  atomic_init(&out_ctx->voices_to_remove.read_idx, 0);
+  atomic_init(&out_ctx->voices_to_remove.dropped_count, 0);
 
   // initializes voices to all 0s (because that's how calloc works)
   out_ctx->voices = (voice_t**) calloc(out_ctx->voices_length, sizeof(void*));
@@ -133,6 +139,8 @@ int raspsynth_audiogen_callback(
   raspsynth_ctx_t* ctx = (raspsynth_ctx_t*) userData; 
   float *out = (float*) output;
   (void) input;
+
+
 
   for(int i = 0; i < frameCount; i++) {
 
@@ -279,8 +287,7 @@ void raspsynth_voice_step (raspsynth_ctx_t* ctx, voice_t* voice)
 
 void raspsynth_sine_process (raspsynth_ctx_t* ctx, voice_t* voice, float* out_l, float* out_r)
 {
-  *out_l = sinf(voice->left_phase * 2.0f * M_PI);
-  *out_r = sinf(voice->right_phase * 2.0f * M_PI);
+  sine_process((void*) ctx, voice, out_l, out_r);
 }
 
 void raspsynth_voice_on_release (raspsynth_ctx_t* app_ctx, voice_t* voice)

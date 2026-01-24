@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 project(sdl_app C)
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
 list(APPEND CMAKE_PREFIX_PATH /usr/local)
 
 find_package(SDL3 REQUIRED)
