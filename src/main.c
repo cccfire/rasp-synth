@@ -16,7 +16,6 @@
 #include "screen.h"
 #include "app.h"
 
-#define SAMPLE_RATE (44100)
 
 void __print_device_info()
 {
@@ -108,21 +107,23 @@ int main(int argc, char *argv[]) {
 
   assert (pm_stream != NULL);
 
-  cdsl_screen_t adsr_screen;
-  adsr_ctx_t adsr_ctx;
-  create_adsr_screen(&adsr_screen, &adsr_ctx);
+
+  raspsynth_ctx_t raspsynth_ctx;
 
   cdsl_app_t app = {
     .renderer = renderer,
-    .starting_screen = &adsr_screen,
     .init = &empty_init,
     .on_draw = &empty_init
   };
 
-  raspsynth_ctx_t raspsynth_ctx;
-
   // populates "app" with function pointers
   create_raspsynth(&app, &raspsynth_ctx);
+
+  cdsl_screen_t adsr_screen;
+  create_adsr_screen(&adsr_screen, &(raspsynth_ctx.amp_adsr));
+
+  app.starting_screen = &adsr_screen;
+
 
   app_init(&app, &raspsynth_ctx);
 
@@ -162,7 +163,23 @@ int main(int argc, char *argv[]) {
     // Poll for Portmidi events
     if (Pm_Read(pm_stream, &pm_buffer, 1)) {
       PmMessage message = pm_buffer.message;
-      printf("Midi message: %d\n", Pm_MessageData1(message));
+      int status = Pm_MessageStatus(pm_buffer.message);
+      int command = status & 0xF0;  // Upper 4 bits
+      int channel = status & 0x0F;  // Lower 4 bits
+
+      // Note on
+      if (command == 0x90) {
+        app.note_on(
+          (int32_t) Pm_MessageData1(pm_buffer.message),
+          (int32_t) Pm_MessageData2(pm_buffer.message),
+          &raspsynth_ctx);
+      }
+      // Note off
+      else if (command == 0x80) {
+        app.note_off(
+          (int32_t) Pm_MessageData1(pm_buffer.message),
+          &raspsynth_ctx);
+      }
     }
 
     app_draw(&app, &raspsynth_ctx);
@@ -197,6 +214,8 @@ int main(int argc, char *argv[]) {
 
   pmerr = Pm_Terminate();
   __pmerror_check(pmerr);
+
+  destroy_raspsynth(&app, &raspsynth_ctx);
 
   return 0;
 }

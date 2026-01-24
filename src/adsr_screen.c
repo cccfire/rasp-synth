@@ -105,11 +105,13 @@ void create_adsr_screen (cdsl_screen_t* const out_screen, adsr_ctx_t* const out_
 void adsr_init (cdsl_app_t* app, adsr_ctx_t* ctx) 
 {
   // Default values for adsr:
+  /*
   ctx->attack = 0.3;
   ctx->hold = 0.7;
   ctx->decay = 1.0;
   ctx->sustain = 0.7;
   ctx->release = 0.5;
+  */
 }
 
 void adsr_on_enter (cdsl_app_t* app, adsr_ctx_t* ctx) 

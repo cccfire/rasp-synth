@@ -8,25 +8,73 @@
 
 #include "adsr_screen.h"
 
-typedef struct raspsynth {
-  adsr_ctx_t* amp_adsr;
-  adsr_ctx_t* filter_adsr;
+#define SAMPLE_RATE (44100)
+
+typedef enum envelope_state {
+  OFF, ATTACK, HOLD, DECAY, SUSTAIN, RELEASE
+} ENVELOPE_STATE_T;
+
+typedef struct raspsynth_voice raspsynth_voice_t;
+typedef struct raspsynth raspsynth_ctx_t;
+
+typedef struct raspsynth_voice {
+  uint32_t start_time;
+  uint64_t frame_count;
+  int32_t pitch;
+  int32_t velocity;
   float left_phase;
   float right_phase;
+  float oscDetune;
+  float oscDetuneMod;
+  adsr_ctx_t adsr;
+  ENVELOPE_STATE_T state;
+  float release_level;
+  void (*step) (raspsynth_voice_t* voice);
+  void (*process) (raspsynth_ctx_t* const ctx, raspsynth_voice_t* voice, float* out_l, float* out_r);
+} raspsynth_voice_t;
+
+typedef struct raspsynth_voice_params {
+} raspsynth_voice_params_t;
+
+typedef struct raspsynth {
+  int sample_rate;
+  adsr_ctx_t amp_adsr;
+  adsr_ctx_t filter_adsr;
+  float left_phase;
+  float right_phase;
+  int num_voices;
+  int voices_length;
+  uint64_t current_frame;
+  raspsynth_voice_t** voices;
 } raspsynth_ctx_t;
 
 /**
- * Creates an adsr screen and context.
+ * Creates the raspberry pi synth app and populates the context.
  *
- * @param[out] out_app  output screen
+ * @param[out] out_app     output app 
  * @param[out] out_ctx     output context 
  */
 void create_raspsynth(
     cdsl_app_t* out_app, 
     raspsynth_ctx_t* out_ctx);
+
+/**
+ * Does any cleanup needed.
+ * Frees ctx->voices and replaces it with a null pointer.
+ *
+ * @param[in] app  input app
+ * @param[in] ctx  input ctx
+ */
+void destroy_raspsynth(
+    cdsl_app_t* app, 
+    raspsynth_ctx_t* ctx);
+
 void raspsynth_init(raspsynth_ctx_t* ctx);
 void raspsynth_on_draw(raspsynth_ctx_t* ctx);
 void raspsynth_event_callback(const SDL_Event* event, raspsynth_ctx_t* ctx);
+
+void raspsynth_note_on(const int32_t pitch, const int32_t velocity, raspsynth_ctx_t* ctx);
+void raspsynth_note_off(const int32_t pitch, raspsynth_ctx_t* ctx);
 
 int raspsynth_audiogen_callback( 
   const void* input,
@@ -36,5 +84,14 @@ int raspsynth_audiogen_callback(
   PaStreamCallbackFlags statusFlags,
   void* userData);
 
+void raspsynth_start_voice(int32_t pitch, int32_t velocity, raspsynth_ctx_t* ctx, 
+    raspsynth_voice_params_t* params, uint32_t time);
+
+void raspsynth_remove_voice(raspsynth_ctx_t* ctx, raspsynth_voice_t* voice);
+
+void raspsynth_step (raspsynth_voice_t* voice); 
+
+void raspsynth_process_adsr (raspsynth_ctx_t* ctx, raspsynth_voice_t* voice, float* out_l, float* out_r);
+void raspsynth_sine_process (raspsynth_ctx_t* ctx, raspsynth_voice_t* voice, float* out_l, float* out_r);
 #endif // RASPSYNTH_H
 

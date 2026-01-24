@@ -10,4 +10,4 @@ file(GLOB SOURCES
   "src/*.c"
 )
 add_executable(app ${SOURCES})
-target_link_libraries(app SDL3::SDL3 portaudio portmidi)
+target_link_libraries(app SDL3::SDL3 portaudio portmidi m)
