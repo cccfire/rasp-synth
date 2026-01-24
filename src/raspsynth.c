@@ -270,13 +270,12 @@ void raspsynth_process_adsr (raspsynth_ctx_t* ctx, raspsynth_voice_t* voice, flo
       }
       break;
     case DECAY:
-      if (seconds - adsr.attack - adsr.hold > adsr.decay) {
+      if (seconds - adsr.attack - adsr.hold > adsr.decay || adsr.decay == 0.0) {
         voice->state = SUSTAIN;
         modifier = adsr.sustain;
       } else { 
-        modifier = adsr.decay ? 
-          adsr.sustain, 1.0f - ((seconds - adsr.attack - adsr.hold) / adsr.decay) 
-          * (1.0f - adsr.sustain) + adsr.sustain : 1;
+        float t = (seconds - adsr.attack - adsr.hold) / adsr.decay;  // 0.0 to 1.0
+        modifier = 1.0f - (t * (1.0f - adsr.sustain));
       }
       
       *out_l = *out_l * modifier;
