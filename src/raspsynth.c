@@ -6,7 +6,9 @@
 
 #include "raspsynth.h"
 
-float pival =
+const float global_gain = 0.25;
+
+const float pival =
     3.14159265358979323846;
 
 void create_raspsynth(cdsl_app_t* out_app, raspsynth_ctx_t* out_ctx)
@@ -27,7 +29,7 @@ void create_raspsynth(cdsl_app_t* out_app, raspsynth_ctx_t* out_ctx)
   out_ctx->current_frame = 0;
 
   out_ctx->amp_adsr.attack = 0.3;
-  out_ctx->amp_adsr.hold = 0.7;
+  out_ctx->amp_adsr.hold = 1.0;
   out_ctx->amp_adsr.decay = 1.0;
   out_ctx->amp_adsr.sustain = 0.7;
   out_ctx->amp_adsr.release = 0.5;
@@ -151,18 +153,8 @@ int raspsynth_audiogen_callback(
         right_acc += out_r * voice_gain;
       }
     }
-    *out++ = left_acc;  // left 
-    *out++ = right_acc;  // right 
-                                 
-    /*
-    // Generate simple sawtooth phaser that ranges between -1.0 and 1.0. 
-    data->left_phase += 0.01f;
-    // When signal reaches top, drop back down. 
-    if( data->left_phase >= 1.0f ) data->left_phase -= 2.0f;
-    // higher pitch so we can distinguish left and right. 
-    data->right_phase += 0.03f;
-    if( data->right_phase >= 1.0f ) data->right_phase -= 2.0f;
-    */
+    *out++ = fmax(-1.0f, fmin(1.0f, global_gain * left_acc));  // left 
+    *out++ = fmax(-1.0f, fmin(1.0f, global_gain * right_acc));  // right 
   }
   return 0;
 }
@@ -245,6 +237,9 @@ void raspsynth_step (raspsynth_voice_t* voice)
                                     12.0);
   voice->left_phase += baseFreq / SAMPLE_RATE;
   voice->right_phase += baseFreq / SAMPLE_RATE;
+
+  voice->left_phase = fmodf(voice->left_phase, 1.0f);
+  voice->right_phase = fmodf(voice->right_phase, 1.0f);
 }
 
 void raspsynth_process_adsr (raspsynth_ctx_t* ctx, raspsynth_voice_t* voice, float* out_l, float* out_r)
@@ -264,26 +259,30 @@ void raspsynth_process_adsr (raspsynth_ctx_t* ctx, raspsynth_voice_t* voice, flo
       voice->release_level = modifier;
       break;
     case HOLD:
-      voice->release_level = 1;
+      voice->release_level = 1.0f;
+      modifier = 1.0f;
+      *out_l = *out_l * modifier;
+      *out_r = *out_r * modifier;
+      voice->release_level = modifier;
       if (seconds - adsr.attack > adsr.hold) {
         voice->state = DECAY;
         break;
       }
       break;
     case DECAY:
-
-      modifier = adsr.decay ? 
-        fmax(adsr.sustain, 1.0f - ((seconds - adsr.attack - adsr.hold) / adsr.decay)) 
-        * (1.0f - adsr.sustain) + adsr.sustain : 1;
+      if (seconds - adsr.attack - adsr.hold > adsr.decay) {
+        voice->state = SUSTAIN;
+        modifier = adsr.sustain;
+      } else { 
+        modifier = adsr.decay ? 
+          adsr.sustain, 1.0f - ((seconds - adsr.attack - adsr.hold) / adsr.decay) 
+          * (1.0f - adsr.sustain) + adsr.sustain : 1;
+      }
       
       *out_l = *out_l * modifier;
       *out_r = *out_r * modifier;
       voice->release_level = modifier;
 
-      if (seconds - adsr.attack - adsr.hold > adsr.decay) {
-        voice->state = SUSTAIN;
-        break;
-      } 
 
       break;
     case SUSTAIN:
@@ -311,6 +310,8 @@ void raspsynth_process_adsr (raspsynth_ctx_t* ctx, raspsynth_voice_t* voice, flo
       raspsynth_remove_voice(ctx, voice);
       break;
   }
+  *out_l = fmax(-1.0f, fmin(1.0f, *out_l));  // left 
+  *out_r = fmax(-1.0f, fmin(1.0f, *out_r));  // right 
 }
 
 void raspsynth_sine_process (raspsynth_ctx_t* ctx, raspsynth_voice_t* voice, float* out_l, float* out_r)
