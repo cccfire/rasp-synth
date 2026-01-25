@@ -18,6 +18,8 @@
 #include "screen.h"
 #include "app.h"
 
+#define MAX_VOICES (512)
+
 
 void __print_device_info()
 {
@@ -120,7 +122,7 @@ int main(int argc, char *argv[]) {
   };
 
   // populates "app" with function pointers
-  create_raspsynth(&app, &raspsynth_ctx);
+  create_raspsynth(&app, &raspsynth_ctx, MAX_VOICES);
 
   cdsl_screen_t adsr_screen;
   create_adsr_screen(&adsr_screen, &(raspsynth_ctx.amp_adsr));
