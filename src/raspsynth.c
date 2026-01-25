@@ -46,8 +46,8 @@ void create_raspsynth(cdsl_app_t* out_app, raspsynth_ctx_t* out_ctx, uint16_t ma
 
   out_ctx->current_frame = 0;
 
-  out_ctx->amp_adsr.attack = 3.0;
-  out_ctx->amp_adsr.hold = 3.0;
+  out_ctx->amp_adsr.attack = 0.5;
+  out_ctx->amp_adsr.hold = 1.0;
   out_ctx->amp_adsr.decay = 1.0;
   out_ctx->amp_adsr.sustain = 0.0;
   out_ctx->amp_adsr.release = 0.5;
@@ -181,7 +181,7 @@ int raspsynth_audiogen_callback(
     ctx->current_frame++;
 
     // Loop through voices array and find non-zero voice pointers
-    for (int j = 0; j < ctx->num_voices; j++) {
+    for (int j = ctx->num_voices-1; j >= 0; j--) {
       int idx = ctx->active_voice_list[j];
       assert (ctx->voice_active[idx]);
       if (ctx->voice_active[idx]) {
@@ -196,13 +196,21 @@ int raspsynth_audiogen_callback(
         adsr_t* adsr = &(((raspsynth_voice_ctx_t*) (ctx->voices[idx].ctx))->amp_adsr);
         double amp_mod = process_adsr(adsr, SAMPLE_RATE);
 
-        left_acc += out_l * amp_mod;
-        right_acc += out_r * amp_mod;
+        ctx->voices[idx].current_left = out_l * amp_mod;
+        ctx->voices[idx].current_right = out_l * amp_mod;
 
-        if (ctx->voices[idx].should_kill(ctx, &ctx->voices[idx]))
+        left_acc += ctx->voices[idx].current_left;
+        right_acc += ctx->voices[idx].current_right;
+
+        if (ctx->voices[idx].should_kill(ctx, &ctx->voices[idx])) {
+          assert (ctx->voices[idx].current_left == 0);
+          assert (ctx->voices[idx].current_right == 0);
           raspsynth_remove_voice(ctx, &ctx->voices[idx]);
+        }
+
       }
     }
+
     *out++ = fmax(-1.0f, fmin(1.0f, global_gain * left_acc));  // left 
     *out++ = fmax(-1.0f, fmin(1.0f, global_gain * right_acc));  // right 
   }
@@ -280,7 +288,8 @@ voice_t raspsynth_create_default_voice (raspsynth_ctx_t* ctx, int32_t pitch, int
   voice.start_time = time;
   voice.pitch = pitch;
   voice.velocity = velocity;
-  voice.current_amplitude = 0.0f;
+  voice.current_left = 0.0f;
+  voice.current_right = 0.0f;
   voice.left_phase = 0.0f;
   voice.right_phase = 0.0f;
   voice.oscDetune = 0.0f;

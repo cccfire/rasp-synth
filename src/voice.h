@@ -17,7 +17,8 @@ typedef struct voice {
   uint32_t start_time;
   int32_t pitch;
   int32_t velocity;
-  double current_amplitude;
+  double current_left;
+  double current_right;
   double left_phase;
   double right_phase;
   double oscDetune;

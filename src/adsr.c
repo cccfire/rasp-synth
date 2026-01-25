@@ -46,8 +46,6 @@ double process_adsr (adsr_t* adsr, int sample_rate)
     // RELEASE is set by note_off and when RELEASE is set, the frame_count is set to 0.
     if (seconds >= adsr->release || adsr->release == 0) {
       adsr->state = OFF;
-      
-      out = 0;
     } else {
       modifier = (1.0f - (seconds / adsr->release)) * adsr->release_level;
       out = out * modifier;
