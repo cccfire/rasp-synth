@@ -35,6 +35,7 @@ typedef struct raspsynth {
   uint16_t num_voices;
   uint16_t max_voices;
   bool* voice_active;
+  int* active_voice_list;
   voice_t* voices;
   raspsynth_voice_ctx_t* voice_contexts;
 
