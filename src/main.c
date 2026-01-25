@@ -5,13 +5,13 @@
 #include <pthread.h>
 
 #include <portaudio.h>
-#include <portmidi.h>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
 #include "empty_stubs.h"
 
+#include "midi_support.h"
 #include "adsr.h"
 #include "adsr_screen.h"
 #include "raspsynth.h"
@@ -38,19 +38,6 @@ void __paerror_check(PaError paerr)
   assert(paerr == paNoError);
 }
 
-void __pmerror_check(PaError pmerr)
-{
-  if (pmerr != pmNoError)
-    printf(  "PortMidi error: %s\n", Pm_GetErrorText( pmerr ) );
-  assert(pmerr == pmNoError);
-}
-
-int32_t __time_proc(void *time_info) {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;  // milliseconds
-}
-
 int main(int argc, char *argv[]) {
   // Initialization
   SDL_Init(SDL_INIT_VIDEO);
@@ -58,8 +45,6 @@ int main(int argc, char *argv[]) {
   PaError paerr = Pa_Initialize();
   __paerror_check(paerr);
 
-  PmError pmerr = Pm_Initialize();
-  __pmerror_check(pmerr);
   __print_device_info();
 
   bool done = false;
@@ -88,29 +73,7 @@ int main(int argc, char *argv[]) {
 
   ////
 
-  /**
-   * using portmidi to open a MIDI input stream for development purposes
-   */
 
-  int num_devices = Pm_CountDevices();
-  const PmDeviceInfo* info = Pm_GetDeviceInfo(num_devices - 1);
-  assert(info != NULL);
-  printf( "Opening Input Stream from Device %d: %s\n", num_devices - 1, info->name );
-
-  PortMidiStream* pm_stream;
-  PmEvent pm_buffer;
-  void* time_info;
-
-  pmerr = Pm_OpenInput(
-    &pm_stream,
-    num_devices - 1,
-    NULL,
-    512,
-    __time_proc,
-    time_info);
-  __pmerror_check(pmerr);
-
-  assert (pm_stream != NULL);
 
 
   raspsynth_ctx_t raspsynth_ctx;
@@ -121,6 +84,7 @@ int main(int argc, char *argv[]) {
     .on_draw = &empty_init
   };
 
+
   // populates "app" with function pointers
   create_raspsynth(&app, &raspsynth_ctx, MAX_VOICES);
 
@@ -129,8 +93,14 @@ int main(int argc, char *argv[]) {
 
   app.starting_screen = &adsr_screen;
 
-
   app_init(&app, &raspsynth_ctx);
+
+  /**
+   * using portmidi to open a MIDI input stream for development purposes
+   */
+  pthread_t midi_thread;
+  create_midi_thread(&midi_thread, &app, &raspsynth_ctx, &done);
+  
 
   PaStream* stream;
   paerr = Pa_OpenDefaultStream( &stream,
@@ -150,6 +120,18 @@ int main(int argc, char *argv[]) {
   while (!done) {
     SDL_Event event;
 
+    app_draw(&app, &raspsynth_ctx);
+
+    // TODO: Should it be the screen's responsibility to present?
+    SDL_RenderPresent(renderer);
+    
+    /*
+    SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
+    SDL_RenderClear(renderer);
+    SDL_RenderPresent(renderer);
+    SDL_Delay(16);
+    */
+
     while (SDL_PollEvent(&event)) {
       if (event.type == SDL_EVENT_QUIT) {
         done = true;
@@ -165,42 +147,17 @@ int main(int argc, char *argv[]) {
       app_event(&app, &event, &raspsynth_ctx);
     }
 
-    // Poll for Portmidi events
-    if (Pm_Read(pm_stream, &pm_buffer, 1)) {
-      PmMessage message = pm_buffer.message;
-      int status = Pm_MessageStatus(pm_buffer.message);
-      int command = status & 0xF0;  // Upper 4 bits
-      int channel = status & 0x0F;  // Lower 4 bits
+    int dropped_a = atomic_load_explicit(&raspsynth_ctx.dropped_voices, memory_order_acquire);
+    int dropped_b = atomic_load_explicit(&raspsynth_ctx.voice_events.dropped_count, memory_order_acquire);
 
-      // Note on
-      if (command == 0x90) {
-        app.note_on(
-          (int32_t) Pm_MessageData1(pm_buffer.message),
-          (int32_t) Pm_MessageData2(pm_buffer.message),
-          &raspsynth_ctx);
-      }
-      // Note off
-      else if (command == 0x80) {
-        app.note_off(
-          (int32_t) Pm_MessageData1(pm_buffer.message),
-          &raspsynth_ctx);
-      }
+    if (dropped_a + dropped_b > 0) {
+      fprintf(stderr, "dropped %d %d\n", dropped_a, dropped_b);
+      fflush(stderr);
     }
-
-    app_draw(&app, &raspsynth_ctx);
-
-    // TODO: Should it be the screen's responsibility to present?
-    SDL_RenderPresent(renderer);
-    
-    /*
-    SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
-    SDL_RenderClear(renderer);
-    SDL_RenderPresent(renderer);
-    SDL_Delay(16);
-    */
   }
 
   // End program, clean up loose ends.
+  pthread_join(midi_thread, NULL);
   
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
@@ -214,11 +171,6 @@ int main(int argc, char *argv[]) {
   paerr = Pa_Terminate();
   __paerror_check(paerr);
 
-  pmerr = Pm_Close(pm_stream);
-  __pmerror_check(pmerr);
-
-  pmerr = Pm_Terminate();
-  __pmerror_check(pmerr);
 
   destroy_raspsynth(&app, &raspsynth_ctx);
 
