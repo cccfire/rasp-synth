@@ -26,28 +26,30 @@ void create_raspsynth(cdsl_app_t* out_app, raspsynth_ctx_t* out_ctx, uint16_t ma
   out_ctx->right_phase = 0.0;
 
   out_ctx->num_voices = 0;
-  out_ctx->max_voices = 10;
 
   bool* voice_active = (bool*) calloc(max_voices, sizeof(bool));
+  int* active_voice_list = (int*) calloc(max_voices, sizeof(int));
   voice_t* voices = (voice_t*) calloc(max_voices, sizeof(voice_t));
   raspsynth_voice_ctx_t* voice_contexts = (raspsynth_voice_ctx_t*) calloc(max_voices, sizeof(raspsynth_voice_ctx_t));
 
   assert (voice_active);
+  assert (active_voice_list);
   assert (voices);
   assert (voice_contexts);
 
   out_ctx->max_voices = max_voices;
 
   out_ctx->voice_active = voice_active;
+  out_ctx->active_voice_list = active_voice_list;
   out_ctx->voices = voices;
   out_ctx->voice_contexts = voice_contexts;
 
   out_ctx->current_frame = 0;
 
-  out_ctx->amp_adsr.attack = 0.3;
+  out_ctx->amp_adsr.attack = 0.5;
   out_ctx->amp_adsr.hold = 1.0;
   out_ctx->amp_adsr.decay = 1.0;
-  out_ctx->amp_adsr.sustain = 0.7;
+  out_ctx->amp_adsr.sustain = 0.0;
   out_ctx->amp_adsr.release = 0.5;
 
   out_ctx->filter_adsr.attack = 0.3;
@@ -122,15 +124,15 @@ void raspsynth_note_off(int32_t pitch, raspsynth_ctx_t* ctx)
 void raspsynth_release_note(raspsynth_ctx_t* ctx, int32_t pitch)
 {
   voice_t* voice = NULL;
-  for (int i = 0; i < ctx->max_voices; i++) {
-    if (ctx->voice_active[i] 
-      && ctx->voices[i].pitch == pitch 
-      && !(ctx->voices[i].is_released(ctx, &ctx->voices[i]))) {
-
+  for (int i = 0; i < ctx->num_voices; i++) {
+    int idx = ctx->active_voice_list[i];
+    assert (ctx->voice_active[idx]);
+    if (ctx->voices[idx].pitch == pitch 
+      && !(ctx->voices[idx].is_released(ctx, &ctx->voices[idx]))) {
       if (voice == NULL) {
-        voice = &ctx->voices[i];
-      } else if (ctx->voices[i].start_time < voice->start_time){
-        voice = &ctx->voices[i];
+        voice = &ctx->voices[idx];
+      } else if (ctx->voices[idx].start_time < voice->start_time){
+        voice = &ctx->voices[idx];
       }
     }
   }
@@ -144,12 +146,13 @@ void raspsynth_release_note(raspsynth_ctx_t* ctx, int32_t pitch)
   // for polyphony later, go back through and release all the voices with the same 
   //   pitch and timestamp
 
-  for (int i = 0; i < ctx->max_voices; i++) {
-    if (ctx->voice_active[i]
-     && ctx->voices[i].pitch == voice->pitch
-     && ctx->voices[i].start_time == voice->start_time) {
+  for (int i = 0; i < ctx->num_voices; i++) {
+    int idx = ctx->active_voice_list[i];
+    if (ctx->voice_active[idx]
+     && ctx->voices[idx].pitch == voice->pitch
+     && ctx->voices[idx].start_time == voice->start_time) {
       //
-      ctx->voices[i].on_release(ctx, &ctx->voices[i]);
+      ctx->voices[idx].on_release(ctx, &ctx->voices[idx]);
     }
   }
 }
@@ -178,26 +181,36 @@ int raspsynth_audiogen_callback(
     ctx->current_frame++;
 
     // Loop through voices array and find non-zero voice pointers
-    for (int j = 0; j < ctx->max_voices; j++) {
-      if (ctx->voice_active[j]) {
-        assert(ctx->voices[j].step != NULL);
-        assert(ctx->voices[j].process != NULL);
-        assert(ctx->voices[j].should_kill != NULL);
-        ctx->voices[j].step(ctx, &ctx->voices[j]);
+    for (int j = ctx->num_voices-1; j >= 0; j--) {
+      int idx = ctx->active_voice_list[j];
+      assert (ctx->voice_active[idx]);
+      if (ctx->voice_active[idx]) {
+        assert(ctx->voices[idx].step != NULL);
+        assert(ctx->voices[idx].process != NULL);
+        assert(ctx->voices[idx].should_kill != NULL);
+        ctx->voices[idx].step(ctx, &ctx->voices[idx]);
 
         float out_l, out_r;
-        ctx->voices[j].process(ctx, &ctx->voices[j], &out_l, &out_r);
+        ctx->voices[idx].process(ctx, &ctx->voices[idx], &out_l, &out_r);
 
-        adsr_t* adsr = &(((raspsynth_voice_ctx_t*) (ctx->voices[j].ctx))->amp_adsr);
+        adsr_t* adsr = &(((raspsynth_voice_ctx_t*) (ctx->voices[idx].ctx))->amp_adsr);
         double amp_mod = process_adsr(adsr, SAMPLE_RATE);
 
-        left_acc += out_l * amp_mod;
-        right_acc += out_r * amp_mod;
+        ctx->voices[idx].current_left = out_l * amp_mod;
+        ctx->voices[idx].current_right = out_l * amp_mod;
 
-        if (ctx->voices[j].should_kill(ctx, &ctx->voices[j]))
-          raspsynth_remove_voice(ctx, &ctx->voices[j]);
+        left_acc += ctx->voices[idx].current_left;
+        right_acc += ctx->voices[idx].current_right;
+
+        if (ctx->voices[idx].should_kill(ctx, &ctx->voices[idx])) {
+          assert (ctx->voices[idx].current_left == 0);
+          assert (ctx->voices[idx].current_right == 0);
+          raspsynth_remove_voice(ctx, &ctx->voices[idx]);
+        }
+
       }
     }
+
     *out++ = fmax(-1.0f, fmin(1.0f, global_gain * left_acc));  // left 
     *out++ = fmax(-1.0f, fmin(1.0f, global_gain * right_acc));  // right 
   }
@@ -221,23 +234,22 @@ void raspsynth_process_event_queue(raspsynth_ctx_t* ctx)
 
 void raspsynth_start_voice(raspsynth_ctx_t* ctx, voice_t voice, raspsynth_voice_ctx_t voice_ctx)
 {
+  if(ctx->num_voices == ctx->max_voices) {
+    atomic_fetch_add(&ctx->dropped_voices, 1);
+    return;
+  } 
+
   // Look for any free spots in the voices array and pick the first free slot
-  bool is_full = true;
   for (int i = 0; i < ctx->max_voices; i++) {
     if (!ctx->voice_active[i]) {
       voice.ctx = &ctx->voice_contexts[i];
       ctx->voice_contexts[i] = voice_ctx;
       ctx->voices[i] = voice;
       ctx->voice_active[i] = true;
-      is_full = false;
+      ctx->active_voice_list[ctx->num_voices] = i;
+      ctx->num_voices++;
       break;
     }
-  }
-
-  if(is_full) {
-    atomic_fetch_add(&ctx->dropped_voices, 1);
-  } else {
-    ctx->num_voices++;
   }
 }
 
@@ -245,12 +257,27 @@ void raspsynth_remove_voice(raspsynth_ctx_t* ctx, voice_t* voice)
 {
   assert(voice);
 
+  if (ctx->num_voices == 0) return;
+
   // Look for the voice in the voices array.
   int voice_idx = (int32_t)(voice - ctx->voices);
   ctx->voice_active[voice_idx] = false;
 
+
+  // Look for the voice in the active_voices_list
+  for (int i = 0; i < ctx->num_voices; i++) {
+    if (ctx->active_voice_list[i] == voice_idx) {
+      // Replace hole with last entry in list
+      ctx->active_voice_list[i] = ctx->active_voice_list[ctx->num_voices - 1];
+      break;
+    }
+  }
+
   // decrement num_voices 
   ctx->num_voices--;
+
+  // invariant. might break if queue processing gets parallelized. fine for now. 
+  assert(ctx->num_voices == 0 || ctx->voice_active[ctx->active_voice_list[ctx->num_voices-1]]);
 }
 
 voice_t raspsynth_create_default_voice (raspsynth_ctx_t* ctx, int32_t pitch, int32_t velocity, uint32_t time)
@@ -261,7 +288,8 @@ voice_t raspsynth_create_default_voice (raspsynth_ctx_t* ctx, int32_t pitch, int
   voice.start_time = time;
   voice.pitch = pitch;
   voice.velocity = velocity;
-  voice.current_amplitude = 0.0f;
+  voice.current_left = 0.0f;
+  voice.current_right = 0.0f;
   voice.left_phase = 0.0f;
   voice.right_phase = 0.0f;
   voice.oscDetune = 0.0f;
