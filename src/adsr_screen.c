@@ -154,7 +154,7 @@ void adsr_draw (cdsl_app_t* app, SDL_Renderer* renderer, adsr_t* ctx)
   float prev_x = ((float) width) * margin;
   float prev_y = ((float) height) * (1.0 - margin);
 
-  float next_x = ((float) width) * margin + second_width * ctx->attack;
+  float next_x = ((float) width) * margin + second_width * ctx->attack / 10000.0f;
   float next_y = (float) height * margin;
 
   __render_thick_line(renderer, prev_x, prev_y, next_x, next_y, thickness);
@@ -165,7 +165,7 @@ void adsr_draw (cdsl_app_t* app, SDL_Renderer* renderer, adsr_t* ctx)
   prev_x = next_x;
   prev_y = next_y;
 
-  next_x += second_width * ctx->hold;
+  next_x += second_width * ctx->hold / 10000.0f;
 
   __render_thick_line(renderer, prev_x, prev_y, next_x, next_y, thickness);
 
@@ -174,7 +174,7 @@ void adsr_draw (cdsl_app_t* app, SDL_Renderer* renderer, adsr_t* ctx)
 
   prev_x = next_x;
 
-  next_x += second_width * ctx->decay;
+  next_x += second_width * ctx->decay / 10000.0f;
   next_y += (float) height * (1.0 - 2 * margin) * (1 - ctx->sustain);
                                                        
   __render_thick_line(renderer, prev_x, prev_y, next_x, next_y, thickness);
@@ -185,7 +185,7 @@ void adsr_draw (cdsl_app_t* app, SDL_Renderer* renderer, adsr_t* ctx)
   prev_x = next_x;
   prev_y = next_y;
 
-  next_x += second_width * ctx->release;
+  next_x += second_width * ctx->release / 10000.0f;
   next_y = (float) height * (1.0 - margin);
 
   __render_thick_line(renderer, prev_x, prev_y, next_x, next_y, thickness);

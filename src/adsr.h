@@ -10,13 +10,13 @@ typedef enum envelope_state {
   OFF, ATTACK, HOLD, DECAY, SUSTAIN, RELEASE
 } ENVELOPE_STATE_T;
 
-// all of these are in seconds except for sustain, which is %-based from 0.0 - 1.0
+// all of these are in 1/10 millisecond except for sustain, which is %-based from 0.0 - 1.0
 typedef struct adsr {
-  double attack; 
-  double hold;
-  double decay;
+  int32_t attack; 
+  int32_t hold;
+  int32_t decay;
   double sustain;
-  double release;
+  int32_t release;
 
   // bottom ones are practical variables for implementation:
   uint64_t frame_count;

@@ -5,7 +5,7 @@
 double process_adsr (adsr_t* adsr, int sample_rate)
 {
   adsr->frame_count++;
-  double seconds = ((double) adsr->frame_count) / sample_rate;
+  double seconds = ((double) adsr->frame_count) * 10000.0f / sample_rate;
   double out = 1.0f;
   double modifier = 0.0f;
 

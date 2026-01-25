@@ -46,17 +46,17 @@ void create_raspsynth(cdsl_app_t* out_app, raspsynth_ctx_t* out_ctx, uint16_t ma
 
   out_ctx->current_frame = 0;
 
-  out_ctx->amp_adsr.attack = 0.5;
-  out_ctx->amp_adsr.hold = 1.0;
-  out_ctx->amp_adsr.decay = 1.0;
-  out_ctx->amp_adsr.sustain = 0.0;
-  out_ctx->amp_adsr.release = 0.5;
+  out_ctx->amp_adsr.attack = 560;
+  out_ctx->amp_adsr.hold = 7000;
+  out_ctx->amp_adsr.decay = 10000;
+  out_ctx->amp_adsr.sustain = 0.5;
+  out_ctx->amp_adsr.release = 5000;
 
-  out_ctx->filter_adsr.attack = 0.3;
-  out_ctx->filter_adsr.hold = 0.7;
-  out_ctx->filter_adsr.decay = 1.0;
-  out_ctx->filter_adsr.sustain = 0.7;
-  out_ctx->filter_adsr.release = 0.5;
+  out_ctx->filter_adsr.attack = 3000;
+  out_ctx->filter_adsr.hold = 7000;
+  out_ctx->filter_adsr.decay = 10000;
+  out_ctx->filter_adsr.sustain = 0.5;
+  out_ctx->filter_adsr.release = 5000;
 
   atomic_init(&out_ctx->voice_events.write_idx, 0);
   atomic_init(&out_ctx->voice_events.read_idx, 0);
