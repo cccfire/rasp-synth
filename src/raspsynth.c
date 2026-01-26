@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <time.h>
 
+#include "event.h"
 #include "raspsynth.h"
 
 const float global_gain = 0.025;
@@ -58,9 +59,9 @@ void create_raspsynth(cdsl_app_t* out_app, raspsynth_ctx_t* out_ctx, uint16_t ma
   out_ctx->filter_adsr.sustain = 0.5;
   out_ctx->filter_adsr.release = 5000;
 
-  atomic_init(&out_ctx->voice_events.write_idx, 0);
-  atomic_init(&out_ctx->voice_events.read_idx, 0);
-  atomic_init(&out_ctx->voice_events.dropped_count, 0);
+  atomic_init(&out_ctx->events.write_idx, 0);
+  atomic_init(&out_ctx->events.read_idx, 0);
+  atomic_init(&out_ctx->events.dropped_count, 0);
 
   atomic_init(&out_ctx->dropped_voices, 0);
 }
@@ -89,20 +90,38 @@ void raspsynth_event_callback(const SDL_Event* event, raspsynth_ctx_t* ctx)
 {
 }
 
+void raspsynth_process_voice_events(raspsynth_ctx_t* ctx, voice_event_data_t* data)
+{
+  if (data->type == VOICE_EVENT_START) {
+    voice_t voice = raspsynth_create_default_voice(ctx, data->pitch, data->velocity, data->timestamp);
+    raspsynth_voice_ctx_t voice_ctx = raspsynth_create_default_voice_ctx(ctx);
+    raspsynth_start_voice(ctx, voice, voice_ctx);
+  } else if (data->type == VOICE_EVENT_RELEASE) {
+    raspsynth_release_note(ctx, data->pitch);
+  }
+}
+
 void raspsynth_note_on(int32_t pitch, int32_t velocity, raspsynth_ctx_t* ctx)
 {
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
   uint32_t time = ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 
-  voice_event_t event = {
+  voice_event_data_t data = {
     .timestamp = time,
     .pitch = pitch,
     .velocity = velocity,
     .type = VOICE_EVENT_START
   };
 
-  voice_queue_push(&ctx->voice_events, event);
+  cdsl_event_t event = {
+    .end = false,
+    .process_data = (void (*) (void* ctx, void*)) raspsynth_process_voice_events
+  };
+
+  memcpy(event.data, &data, sizeof(data));
+
+  cdsl_event_queue_push(&ctx->events, event);
 }
 
 void raspsynth_note_off(int32_t pitch, raspsynth_ctx_t* ctx)
@@ -111,14 +130,20 @@ void raspsynth_note_off(int32_t pitch, raspsynth_ctx_t* ctx)
   clock_gettime(CLOCK_MONOTONIC, &ts);
   uint32_t time = ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 
-  voice_event_t event = {
+  voice_event_data_t data = {
     .timestamp = time,
     .pitch = pitch,
-    .velocity = 0.0f,
     .type = VOICE_EVENT_RELEASE
   };
+
+  cdsl_event_t event = {
+    .end = false,
+    .process_data = (void (*) (void* ctx, void*)) raspsynth_process_voice_events
+  };
+
+  memcpy(event.data, &data, sizeof(data));
   
-  voice_queue_push(&ctx->voice_events, event);
+  cdsl_event_queue_push(&ctx->events, event);
 }
 
 void raspsynth_release_note(raspsynth_ctx_t* ctx, int32_t pitch)
@@ -219,16 +244,10 @@ int raspsynth_audiogen_callback(
 
 void raspsynth_process_event_queue(raspsynth_ctx_t* ctx) 
 {
-  voice_event_t event;
+  cdsl_event_t event;
 
-  while ((event = voice_queue_pop(&ctx->voice_events)).type != VOICE_EVENT_END) {
-    if (event.type == VOICE_EVENT_START) {
-      voice_t voice = raspsynth_create_default_voice(ctx, event.pitch, event.velocity, event.timestamp);
-      raspsynth_voice_ctx_t voice_ctx = raspsynth_create_default_voice_ctx(ctx);
-      raspsynth_start_voice(ctx, voice, voice_ctx);
-    } else if (event.type == VOICE_EVENT_RELEASE) {
-      raspsynth_release_note(ctx, event.pitch);
-    }
+  while (!(event = cdsl_event_queue_pop(&ctx->events)).end) {
+    event.process_data(ctx, event.data);
   }
 }
 

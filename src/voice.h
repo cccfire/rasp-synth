@@ -9,8 +9,6 @@
 
 #include "adsr.h"
 
-#define QUEUE_SIZE (256)
-
 typedef struct voice voice_t;
 
 typedef struct voice {
@@ -33,7 +31,7 @@ typedef struct voice {
 } voice_t;
 
 typedef enum voice_event_type {
-  VOICE_EVENT_START, VOICE_EVENT_RELEASE, VOICE_EVENT_END
+  VOICE_EVENT_START, VOICE_EVENT_RELEASE 
 } VOICE_EVENT_TYPE_T;
 
 typedef struct voice_event {
@@ -41,24 +39,7 @@ typedef struct voice_event {
   int32_t pitch;
   int32_t velocity;
   VOICE_EVENT_TYPE_T type;
-} voice_event_t;
-
-typedef struct {
-  voice_event_t buffer[QUEUE_SIZE];
-  _Atomic int write_idx;
-  _Atomic int read_idx;
-
-  // Purely for debugging purposes:
-  _Atomic int dropped_count;  // Track failures
-} voice_event_queue_t;
-
-
-void voice_queue_push(voice_event_queue_t* q, voice_event_t v);
-
-/**
- * If empty, pops an event with type VOICE_EVENT_END
- */
-voice_event_t voice_queue_pop(voice_event_queue_t* q);
+} voice_event_data_t;
 
 /**
  * process_adsr does most of the work but do need to make sure the envelopes are released when

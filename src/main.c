@@ -148,7 +148,7 @@ int main(int argc, char *argv[]) {
     }
 
     int dropped_a = atomic_load_explicit(&raspsynth_ctx.dropped_voices, memory_order_acquire);
-    int dropped_b = atomic_load_explicit(&raspsynth_ctx.voice_events.dropped_count, memory_order_acquire);
+    int dropped_b = atomic_load_explicit(&raspsynth_ctx.events.dropped_count, memory_order_acquire);
 
     if (dropped_a + dropped_b > 0) {
       fprintf(stderr, "dropped %d %d\n", dropped_a, dropped_b);

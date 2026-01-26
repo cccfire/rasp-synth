@@ -10,11 +10,12 @@
 #include "adsr.h"
 #include "voice.h"
 #include "app.h"
+#include "event.h"
+#include "queue.h"
 
 #define SAMPLE_RATE (44100)
 
 typedef struct raspsynth raspsynth_ctx_t;
-
 
 typedef struct raspsynth_voice_ctx {
   adsr_t amp_adsr;
@@ -30,7 +31,7 @@ typedef struct raspsynth {
   adsr_t filter_adsr;
   float left_phase;
   float right_phase;
-  voice_event_queue_t voice_events;
+  cdsl_event_queue_t events;
   uint64_t current_frame;
   uint16_t num_voices;
   uint16_t max_voices;
@@ -38,7 +39,6 @@ typedef struct raspsynth {
   int* active_voice_list;
   voice_t* voices;
   raspsynth_voice_ctx_t* voice_contexts;
-
   _Atomic uint32_t dropped_voices;
 } raspsynth_ctx_t;
 
@@ -98,5 +98,10 @@ void raspsynth_sine_process (raspsynth_ctx_t* ctx, voice_t* voice, float* out_l,
 void raspsynth_voice_on_release (raspsynth_ctx_t* ctx, voice_t* voice); 
 bool raspsynth_voice_should_kill (raspsynth_ctx_t* app_ctx, voice_t* voice);
 bool raspsynth_voice_is_released (raspsynth_ctx_t* ctx, voice_t* voice); 
+
+// process
+void raspsynth_process_note_on(raspsynth_ctx_t* ctx, void* data);
+void raspsynth_process_note_on(raspsynth_ctx_t* ctx, void* data);
+
 #endif // RASPSYNTH_H
 
